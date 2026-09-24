@@ -26,6 +26,7 @@ class RetrievalConfig:
     embedding_version: str | None = None
     embedding_credentials_configured: bool = False
     chunker_version: str = "v1"
+    index_version: str = "v1"
     max_candidates: int = DEFAULT_MAX_CANDIDATES
     max_results: int = DEFAULT_MAX_RESULTS
     vector_timeout_seconds: float = 10.0
@@ -70,6 +71,7 @@ class RetrievalConfig:
             embedding_version=self.embedding_version,
             embedding_credentials_configured=self.embedding_credentials_configured,
             chunker_version=self.chunker_version,
+            index_version=self.index_version,
             max_candidates=self.max_candidates,
             max_results=self.max_results,
             vector_timeout_seconds=self.vector_timeout_seconds,
@@ -122,6 +124,7 @@ def retrieval_config_from_settings(settings: Settings) -> RetrievalConfig:
     )
     version = (settings.knowledge_embedding_version or "").strip() or None
     chunker_version = settings.knowledge_chunker_version.strip() or "v1"
+    index_version = settings.knowledge_index_version.strip() or "v1"
     timeout = max(float(settings.knowledge_vector_timeout_seconds), 0.1)
     credentials_configured = (
         provider != "openai"
@@ -139,6 +142,7 @@ def retrieval_config_from_settings(settings: Settings) -> RetrievalConfig:
         embedding_version=version,
         embedding_credentials_configured=credentials_configured,
         chunker_version=chunker_version,
+        index_version=index_version,
         max_candidates=max_candidates,
         max_results=max_results,
         vector_timeout_seconds=timeout,

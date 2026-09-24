@@ -107,6 +107,45 @@ class ProjectAgentRunDetailResponse(BaseModel):
     agent_recovery_hint: str | None = None
 
 
+class ProjectAgentKnowledgeGapDigestRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    project: ProjectRef
+    period_start: str = Field(min_length=1, max_length=50)
+    period_end: str = Field(min_length=1, max_length=50)
+
+
+class ProjectAgentKnowledgeGapDigestResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    project: ProjectRef
+    period_start: str
+    period_end: str
+    digest_date: str
+    new_count: int
+    ongoing_count: int
+    high_impact_count: int
+    reopened_count: int
+    resolved_count: int
+    summary_hash: str
+    card: dict[str, Any]
+
+
+class ProjectAgentKnowledgeGapActionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    project: ProjectRef
+    action_type: str = Field(min_length=1, max_length=50)
+    description: str = Field(min_length=1, max_length=2_000)
+    target_owner_id: str | None = Field(default=None, max_length=200)
+    linked_task_id: str | None = Field(default=None, max_length=300)
+
+
+class ProjectAgentKnowledgeGapActionStatusRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    project: ProjectRef
+    status: str = Field(min_length=1, max_length=30)
+
+
 class ProjectAgentToolInfo(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

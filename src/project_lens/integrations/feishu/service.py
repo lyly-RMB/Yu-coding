@@ -768,6 +768,13 @@ class FeishuEventService:
         runtime = self._hermes_runtime
         if runtime is None:
             raise RuntimeError("Hermes runtime is not configured")
+        handoff = None
+        if (
+            session is not None
+            and session.session_state is not None
+            and session.session_state.rotation_pending
+        ):
+            handoff, session = self._conversation.build_handoff(session)
         memories: tuple[ProjectMemory, ...] = ()
         if session is not None and self._memory_store is not None:
             memories = authorize_memory_candidates(
@@ -779,6 +786,7 @@ class FeishuEventService:
             session=session,
             memories=memories,
             memory_summary=build_memory_summary(memories),
+            handoff=handoff,
             runtime_access={
                 "tenant_id": scope.project.tenant_id,
                 "project_id": scope.project.project_id,
@@ -821,9 +829,20 @@ class FeishuEventService:
                 run_id=executed.id,
                 answer=execution.answer,
             )
-            self._conversation.attach_hermes_tool_loop(
+            session = self._conversation.attach_hermes_tool_loop(
                 session, hermes_loop_scratchpad_entry(execution.envelope)
             )
+            audit_ref = execution.envelope.get("audit_ref")
+            context_budget = (
+                audit_ref.get("context_budget")
+                if isinstance(audit_ref, dict)
+                else None
+            )
+            if (
+                isinstance(context_budget, dict)
+                and context_budget.get("rotation_recommended") is True
+            ):
+                self._conversation.mark_rotation_pending(session, pending=True)
         await self._render_hermes_execution(
             chat_id=chat_id,
             execution=execution,

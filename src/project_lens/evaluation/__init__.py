@@ -13,6 +13,13 @@ from project_lens.evaluation.memory_retrieval import (
     evaluate_history_retrieval,
     evaluate_memory_retrieval,
 )
+from project_lens.evaluation.context_compression import (
+    CompressionCase,
+    CompressionEvaluationReport,
+    CompressionProbe,
+    evaluate_compression,
+    load_compression_cases,
+)
 
 __all__ = [
     "HarnessProbeReport",
@@ -25,6 +32,11 @@ __all__ = [
     "evaluate_history_retrieval",
     "evaluate_memory_retrieval",
     "run_harness_probes",
+    "CompressionCase",
+    "CompressionEvaluationReport",
+    "CompressionProbe",
+    "evaluate_compression",
+    "load_compression_cases",
 ]
 
 

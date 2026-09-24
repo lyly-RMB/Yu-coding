@@ -32,11 +32,13 @@ class KnowledgeEmbeddingService:
         provider,
         *,
         model_version: str | None = None,
+        index_version: str = "v1",
         max_batch_size: int = 32,
     ) -> None:
         self._store = store
         self._provider = provider
         self._model_version = model_version or str(provider.model_version)
+        self._index_version = index_version
         self._max_batch_size = max(1, min(int(max_batch_size), 128))
 
     @property
@@ -60,6 +62,7 @@ class KnowledgeEmbeddingService:
                 model_version=self._model_version,
                 content_hash=chunk.content_hash,
                 chunker_version=chunk.chunker_version,
+                index_version=self._index_version,
             )
             if cached is not None and cached.status == "ready":
                 continue
@@ -91,6 +94,7 @@ class KnowledgeEmbeddingService:
                 model_version=self._model_version,
                 content_hash=chunk.content_hash,
                 chunker_version=chunk.chunker_version,
+                index_version=self._index_version,
             )
             is None
         ]
@@ -112,6 +116,7 @@ class KnowledgeEmbeddingService:
                             dimensions=len(vector),
                             content_hash=chunk.content_hash,
                             chunker_version=chunk.chunker_version,
+                            index_version=self._index_version,
                             vector=vector,
                         )
                     )

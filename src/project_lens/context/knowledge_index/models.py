@@ -94,6 +94,7 @@ class EmbeddingRecord(FrozenModel):
     dimensions: int = Field(gt=0)
     content_hash: str
     chunker_version: str
+    index_version: str = "v1"
     vector: tuple[float, ...]
     status: str = "ready"
     created_at: datetime = Field(default_factory=utc_now)
@@ -108,6 +109,7 @@ class KnowledgeIndexJob(FrozenModel):
     content_hash: str
     model_version: str
     chunker_version: str = "v1"
+    index_version: str = "v1"
     status: str = "pending"
     attempt_count: int = Field(default=0, ge=0)
     last_error: str | None = None

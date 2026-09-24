@@ -9,6 +9,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, ConfigDict, Field
 
 from project_lens.domain.models import ProjectRef, utc_now
+from project_lens.domain.session_state import ProjectSessionState
 
 DEFAULT_RECENT_TURN_LIMIT = 6
 DEFAULT_SESSION_TTL = timedelta(days=7)
@@ -71,6 +72,7 @@ class ConversationSession(FrozenModel):
     last_run_id: UUID | None = None
     recent_turns: tuple[ConversationTurn, ...] = ()
     summary: ConversationSummary
+    session_state: ProjectSessionState | None = None
     # L3 scratchpad reserved for later Engineering/Ops process state.
     task_scratchpad: dict[str, Any] = Field(default_factory=dict)
     expires_at: datetime = Field(

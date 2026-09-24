@@ -1506,6 +1506,8 @@ def _evidence_ref(item: Evidence) -> dict[str, Any]:
         "source_uri": f"{item.source.system}:{item.source.source_id}",
         "summary": item.content.strip().replace("\n", " ")[:240],
         "revision": item.metadata.get("revision") or item.metadata.get("version"),
+        "content_hash": item.content_hash,
+        "authority": item.metadata.get("authority") or "approved",
         "status": item.metadata.get("status"),
         "observed_at": item.observed_at.isoformat(),
         "evidence_ref": str(item.id),

@@ -9,6 +9,9 @@
 | 文档 | 用途 |
 |------|------|
 | [`projectlens-product-document.md`](projectlens-product-document.md) | 产品定义、目标/非目标、概念、MVP、路线图 |
+| [`projectlens-context-composer-product-design.md`](projectlens-context-composer-product-design.md) | 上下文管理器产品设计：按天隔离、历史选择、摘要、状态与完整性提醒 |
+| [`projectlens-context-composer-development-spec.md`](projectlens-context-composer-development-spec.md) | 上下文管理器开发规格：六项核心功能、数据模型、飞书卡片、快照、测试与分阶段实施 |
+| [`projectlens-context-compression-quick-development-plan.md`](projectlens-context-compression-quick-development-plan.md) | Hermes 上下文压缩快速落地：预算、裁剪、增量摘要、会话轮换、失败恢复与评测 |
 | [`feishu-test-quickstart.md`](feishu-test-quickstart.md) | **新人飞书测试**：要配什么、怎么配、怎么冒烟 |
 | [`../config/hermes/README.md`](../config/hermes/README.md) | Hermes `projectlens-safe` profile 拷贝说明 |
 | [`feishu-setup.md`](feishu-setup.md) | 飞书应用、事件回调、权限与联调检查 |

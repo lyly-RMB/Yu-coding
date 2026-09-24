@@ -1,5 +1,22 @@
 # Progress Log
 
+## 2026-09-22 Hermes context compression quick implementation
+
+- Confirmed existing `ConversationService` already performs deterministic L1/L2/L3 compression, but Hermes still receives ungoverned context and full tool envelopes.
+- Started phase 1 implementation: request-level token estimation, bounded context pruning, and audit reporting at the ProjectLens/Hermes boundary.
+- Added EvidenceCard-bounded Hermes tool envelopes: duplicate `source_key + revision` references are removed, full bodies are omitted, and detail pointers remain available for explicit re-read.
+- Added structured session-state integration with summary versioning, compressed-turn anchors, rotation markers, and handoff summaries.
+- Added aggressive-prune protections for structured summary sections so confirmed facts, evidence references, and decisions survive compression.
+- Added immutable prepared-context snapshots with request-identity-based snapshot IDs, context hashes, renderer version, and stable section-order audit fields.
+- Connected rotation recommendations to Feishu session state: high-utilization runs persist `rotation_pending`, and the next request builds and injects a bounded handoff summary.
+- Handoff ID and summary version are included in Hermes context audit refs.
+- Implemented Phase 6 recovery: transient provider errors, timeouts, connection failures, rate limits, and context-limit failures get at most one retry after forced aggressive pruning; auth, permission, billing, and invalid-request failures do not retry.
+- Recovery audit fields survive the final post-tool-loop budget report: attempts, action, and trigger classification.
+- Focused Phase 6 verification: 20 Hermes/governor tests passed.
+- Implemented Phase 7 deterministic compression evaluation with recall, artifact, decision, continuation, citation, and negative probes, plus token-reduction metrics and an insufficient-data release gate.
+- Added `python -m project_lens.evaluation.run_compression` and generated `evaluation/reports/context-compression-report.json`.
+- Development evaluation result: 2 cases, 7/7 probes passed, token reduction 64.9%, status `insufficient_data`; 50 cases remain required before a release decision.
+
 ## 2026-09-18 Knowledge retrieval vectorization plan
 
 - Completed stage 1 knowledge index contracts: added `KnowledgeDocument`, `KnowledgeChunk`, `EmbeddingRecord`, `KnowledgeIndexJob`, stable IDs/content hashes, five source adapters, and SQLite migrations/store for documents, chunks, embeddings, and index jobs.
@@ -38,6 +55,7 @@
 - Fixed the local evaluation bootstrap to include task and release fixtures, so temporal development cases exercise real release evidence.
 - Corrected security evaluation to keep stale-but-authorized temporal results as a quality signal rather than misclassifying unrelated future documents as an ACL/status security leak.
 - Replayed the 12-case development report: temporal correctness=1.0, security checks all zero, lexical Recall@5=1.0, deterministic-fake hybrid Recall@5=0.875, gate decision `insufficient_data`.
+- Final stage 7 continuation verification: 36 focused tests passed, report regenerated successfully, `compileall` and `git diff --check` passed.
 - Remaining stage 7 work: expand the golden set to at least 100 anonymized cases and supply real answer/temporal/conflict replay records before any release decision.
 
 - Implemented the first executable stage 0 slice: knowledge-specific retrieval settings now default to lexical mode, vector disabled, bounded candidate/result limits, versioned embedding/chunker fields, and safe vector fallback.
@@ -105,6 +123,114 @@
 - `git diff --check`: passed.
 - Full `pytest -q`: 629 passed, 13 failed. The failures are outside the Obsidian/Git phase implementation: legacy `query_graph`/MCP catalog expectations, Hermes role/card text expectations, a required `technical_summary` fixture field, and model-provider defaults overridden by the local `.env`.
 - Phase 6 is complete with the compatibility failures explicitly retained for a later cleanup pass.
+
+## 2026-09-21 Durable index build
+
+- Added `KnowledgeIndexBuildService` for Evidence -> KnowledgeDocument ->
+  KnowledgeChunk -> persisted embedding construction.
+- Added incremental replacement semantics: changed content creates the current
+  chunk set, old chunks become `superseded` and are excluded from vector search.
+- Added source-identity retirement for Evidence updates where the upstream
+  Evidence UUID changes but `(source.system, source.source_id)` remains stable.
+- Added revocation handling that deactivates current chunks without deleting
+  historical rows or embeddings.
+- Added `KnowledgeIndexBuildResult` counters for documents, chunks, deactivated
+  chunks, and embedding success/failure/cache-hit results.
+- The builder is intentionally not called during application startup yet; startup
+  must not unexpectedly make external embedding requests. The next integration
+  step is an explicit sync/rebuild operation with bounded batches and observability.
+- Verification: 17 focused index/vector tests passed; compilation and
+  `git diff --check` passed.
+
+## 2026-09-21 Explicit index synchronization
+
+- Added `KnowledgeIndexSyncService` for explicit incremental and full snapshots.
+- Added bounded batch processing, dry-run mode, invalid-mode validation, and
+  synchronization result counters.
+- Full sync now deactivates documents and chunks absent from the supplied source
+  snapshot while retaining historical rows for audit/replay.
+- Added `KnowledgeIndexStats` for document/chunk/embedding/job health:
+  active counts, ready vectors, pending jobs, and failed/dead-letter jobs.
+- Added synchronization tests for batching, dry-run isolation, full-snapshot
+  deactivation, and status reporting.
+- The sync layer is not yet wired to connector schedulers or HTTP commands; this
+  remains an explicit integration step so production cannot trigger embedding work
+  accidentally.
+- Verification: 21 focused index/vector tests passed; compilation and
+  `git diff --check` passed.
+
+## 2026-09-21 Connector sync integration
+
+- Injected `KnowledgeIndexSyncService` into `ConnectorSyncService`.
+- Successful connector batches now trigger incremental knowledge indexing after
+  Evidence/source persistence completes.
+- Connector failures do not invoke the knowledge index.
+- Embedding/index failures are isolated from the Evidence sync path and reported as
+  `knowledge_index_error`; lexical retrieval remains available.
+- Added `knowledge_indexed_count` to connector sync results.
+- Registered the durable knowledge index store, builder, and sync service on
+  `application.state` without performing startup indexing or network embedding calls.
+- Added application integration tests for successful indexing, isolated index
+  failure, and connector failure short-circuiting.
+- Verification: 28 focused sync/index tests passed; app assembly smoke test passed;
+  compilation and `git diff --check` passed.
+
+## 2026-09-21 Persistent vector routing and operations API
+
+- Switched the application vector channel from candidate-only embedding to
+  `KnowledgeIndexVectorRetriever` when vector prerequisites are ready.
+- Added candidate-level fallback inside `KnowledgeIndexVectorRetriever` for
+  Evidence that has not yet been persisted into the chunk index, so hybrid search
+  remains usable during migration and partial indexing.
+- Prevented fallback from returning superseded source revisions once a source has a
+  persisted current vector row.
+- Added ACL-protected `POST /projects/knowledge-index/status` for project-scoped
+  index health.
+- Added ACL-protected `POST /projects/knowledge-index/sync` for explicit
+  incremental/full rebuilds, including dry-run mode.
+- Connector sync API responses now expose `knowledge_indexed_count` and
+  `knowledge_index_error`.
+- No vector model configuration or `.env` change was made in this pass.
+- Verification: 34 focused API/sync/vector tests passed; app assembly smoke test
+  confirmed `KnowledgeIndexVectorRetriever`; compilation and `git diff --check`
+  passed.
+
+## 2026-09-22 Real embedding activation and index versions
+
+- Verified the configured OpenAI-compatible embedding provider without exposing
+  credentials: provider ready, model version `qwen3.7-text-embedding`, response
+  dimension 1024.
+- Ran a real full build for the `demo/payment` project in an in-memory database:
+  8 Evidence records, 8 chunks, 8 embeddings completed, 0 failures, 0 failed jobs.
+- Ran a real hybrid query through `ContextEngine`; it returned 5 hits from 8
+  persisted vector rows, with 0 fallback candidates and no vector failure.
+- Added `index_version` to embedding/job contracts, settings, cache lookup/write,
+  durable query filtering, and the application retriever.
+- Added parallel index-version isolation coverage for v1/v2 embeddings, while
+  keeping old index rows available for rollback.
+- Final focused verification: 37 tests passed; compilation and `git diff --check`
+  passed. No `.env` or model configuration was changed in this pass.
+
+## 2026-09-21 Vector retrieval persistence
+
+- Added `SQLiteKnowledgeIndexStore.list_chunks_with_embeddings()` to join only ready
+  embeddings whose tenant/project, model version, chunker version, and content hash
+  still match the current chunk.
+- Added `KnowledgeIndexVectorRetriever` for query embedding plus application-layer
+  cosine scoring over persisted vectors. It resolves results back to authorized
+  Evidence candidates and filters inactive, revoked, pending, rejected, and expired
+  chunks before scoring.
+- Added chunk provenance for `valid_from`/`valid_to` and mapped those fields from
+  Evidence metadata. This prevents expired source content from being returned by the
+  durable vector path.
+- Kept the default application retriever unchanged because the current app assembly
+  does not yet perform a full/incremental Evidence-to-knowledge-index build. The new
+  retriever is explicit and injectable; automatic production switching is deferred
+  until index population and lifecycle synchronization are implemented.
+- Added persistent-vector tests for provenance, tenant/candidate isolation, lifecycle
+  filtering, model-version isolation, chunker-version isolation, and expiry.
+- Verification: focused vector/index tests passed; `python -m compileall -q src`
+  passed; `git diff --check` passed.
 - Completed Phase 5 Git/recovery operations.
 - Added `ObsidianGitService` for Vault-confined status, diff, commit, explicit rollback, manifest recovery checks, and manifest restoration from Git.
 - Git workflow is disabled unless both Obsidian and Git flags are enabled; push and merge are intentionally not exposed.

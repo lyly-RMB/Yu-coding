@@ -8,12 +8,14 @@ from project_lens.context.retrieval.config import (
 )
 from project_lens.context.retrieval.exact import ExactCodeRetriever
 from project_lens.context.retrieval.fusion import ReciprocalRankFusion
+from project_lens.context.retrieval.knowledge_vector import KnowledgeIndexVectorRetriever
 from project_lens.context.retrieval.vector import EvidenceVectorRetriever
 
 __all__ = [
     "BM25Retriever",
     "ExactCodeRetriever",
     "EvidenceVectorRetriever",
+    "KnowledgeIndexVectorRetriever",
     "ReciprocalRankFusion",
     "RetrievalConfig",
     "RetrievalMode",

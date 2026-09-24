@@ -5,6 +5,7 @@ from project_lens.domain.conversation import ConversationSession, ConversationTu
 from project_lens.domain.memory import MemoryType, ProjectMemory
 from project_lens.domain.models import ProjectRef
 from project_lens.context.memory_retrieval import build_memory_summary
+from project_lens.domain.session_state import HandoffSummary
 from project_lens.integrations.feishu.hermes_context import build_hermes_project_context
 
 
@@ -88,3 +89,19 @@ def test_context_can_inject_navigation_summary_without_memory_bodies() -> None:
     assert "project_memory_directory:" in context.text
     assert "callback-service" in context.text
     assert memory.text not in context.text
+
+
+def test_context_injects_handoff_and_audits_its_version() -> None:
+    session = _session()
+    handoff = HandoffSummary(
+        session_id=session.session_id,
+        project_id=session.project.project_id,
+        summary_version=4,
+        markdown="handoff_id=h1\n## Next Steps\n- continue investigation",
+    )
+    context = build_hermes_project_context(session=session, handoff=handoff)
+
+    assert "handoff_summary:" in context.text
+    assert "continue investigation" in context.text
+    assert context.audit_refs["handoff_id"] == handoff.handoff_id
+    assert context.audit_refs["handoff_summary_version"] == 4

@@ -1,0 +1,23 @@
+[
+  {
+    "case_id": "incident-summary-retention",
+    "question": "继续处理这个故障，下一步是什么？",
+    "context_text": "## Session Intent\n排查订单创建失败\n## Confirmed Facts\n- 错误码是 PAY-42 [evidence: ev-pay-42]\n- 入口函数是 create_order [evidence: ev-order]\n## Decisions\n- 先增加 coupon null guard (status=confirmed)\n## Evidence References\n- ev-pay-42 | github:src/order_service.py | revision=abc1234 | hash=sha256:pay42\n## Next Steps\n- 增加回归测试\nold transcript noise\nold transcript noise\nold transcript noise\nold transcript noise\nold transcript noise\nold transcript noise\nold transcript noise\nold transcript noise\nold transcript noise\nold transcript noise\nold transcript noise\nold transcript noise\nold transcript noise\nold transcript noise\nold transcript noise\nold transcript noise\nold transcript noise\nold transcript noise\nold transcript noise\nold transcript noise",
+    "probes": [
+      {"probe_id": "error-code", "kind": "recall", "expected": ["PAY-42"]},
+      {"probe_id": "artifact", "kind": "artifact", "expected": ["src/order_service.py", "create_order"]},
+      {"probe_id": "decision", "kind": "decision", "expected": ["coupon null guard"]},
+      {"probe_id": "next-step", "kind": "continuation", "expected": ["回归测试"]},
+      {"probe_id": "citation", "kind": "citation", "expected": ["ev-pay-42", "abc1234"]}
+    ]
+  },
+  {
+    "case_id": "negative-unknown-retention",
+    "question": "请继续调查，但不要猜测未提供的版本号。",
+    "context_text": "## Session Intent\n调查发布后 checkout 失败\n## Confirmed Facts\n- 当前只确认 HTTP 500\n## Open Questions\n- 发布版本尚未确认\nrepeated search result\nrepeated search result\nrepeated search result\nrepeated search result\nrepeated search result\nrepeated search result\nrepeated search result\nrepeated search result\nrepeated search result\nrepeated search result\nrepeated search result\nrepeated search result\nrepeated search result\nrepeated search result\nrepeated search result\nrepeated search result\nrepeated search result\nrepeated search result\nrepeated search result\nrepeated search result",
+    "probes": [
+      {"probe_id": "known-error", "kind": "recall", "expected": ["HTTP 500"]},
+      {"probe_id": "unknown-version", "kind": "negative", "forbidden": ["v9.9.9", "2026.09.22"]}
+    ]
+  }
+]

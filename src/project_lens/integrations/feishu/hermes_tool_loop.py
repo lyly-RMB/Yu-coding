@@ -16,6 +16,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from project_lens.application.project_agent_tools import ProjectAgentToolService
+from project_lens.context.governor import ContextGovernor
 from project_lens.domain.models import ProjectRef
 from project_lens.integrations.feishu.cards import FeishuCard, _markdown
 from project_lens.integrations.feishu.hermes_context import HermesProjectContext
@@ -81,6 +82,7 @@ class FeishuHermesToolLoopBridge:
         hermes_model: str = "gpt-5.4-mini",
         hermes_base_url: str | None = None,
         hermes_api_key: str | None = None,
+        context_governor: ContextGovernor | None = None,
     ) -> None:
         self._tool_service = tool_service
         self._config = config
@@ -94,6 +96,7 @@ class FeishuHermesToolLoopBridge:
             model=hermes_model,
             base_url=hermes_base_url,
             api_key=hermes_api_key,
+            context_governor=context_governor or ContextGovernor(),
         )
         self.last_tool_names: tuple[str, ...] = ()
         self.last_tool_calls: tuple[HermesLoopToolCall, ...] = ()
@@ -326,6 +329,7 @@ def _build_answer_envelope(
         "chat_id": chat_id,
         "user_id": user_id,
         "hermes_ok": bool(result.ok),
+        "context_budget": result.context_budget,
         "context": context.audit_refs if context is not None else None,
         "answer_draft": result.answer_draft is not None,
     }

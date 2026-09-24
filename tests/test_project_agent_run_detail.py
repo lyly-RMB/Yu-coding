@@ -181,3 +181,78 @@ def test_run_detail_route_uses_trusted_headers_when_available() -> None:
     body = response.json()
     assert body["ok"] is True
     assert body["run_id"] == str(run.id)
+
+
+def test_knowledge_gap_digest_preview_requires_trusted_actor_and_filters_evidence() -> None:
+    from datetime import datetime, timezone
+
+    from fastapi.testclient import TestClient
+    from project_lens.application.knowledge_gap_service import KnowledgeGapService
+    from project_lens.context.models import AccessContext
+    from project_lens.domain.knowledge_gap import (
+        GapSeverity,
+        KnowledgeGapCandidate,
+        KnowledgeGapCaseType,
+        KnowledgeGapStatus,
+    )
+    from project_lens.main import create_app
+    from tests.conftest import project_agent_headers
+
+    app = create_app()
+    client = TestClient(app)
+    project = app.state.project_runtime_context_resolver.resolve(
+        tenant_id="demo", project_id="payment", chat_id="chat-1", user_id="u1",
+        chat_type="group", identity_source="test_fixture",
+    ).project
+    now = datetime(2026, 9, 23, 9, tzinfo=timezone.utc)
+    allowed = app.state.context_engine.authorized_evidence(
+        project,
+        AccessContext(tenant_id="demo", user_id="u1", permissions=frozenset({"project:payment:read"})),
+        limit=50,
+    )
+    assert allowed
+    visible = allowed[0].id
+    hidden = uuid4()
+    service = KnowledgeGapService(app.state.knowledge_gap_store)
+    for question, evidence_id in (("visible gap?", visible), ("private gap?", hidden)):
+        case = service.observe(
+            KnowledgeGapCandidate(
+                project=project,
+                type=KnowledgeGapCaseType.MISSING_SOURCE,
+                title=question,
+                question=question,
+                description="Missing source.",
+                severity=GapSeverity.MEDIUM,
+                evidence_ids=(evidence_id,),
+            ),
+            authorized_project=project,
+            authorized_evidence_ids=frozenset({evidence_id}),
+            visibility_scope="test",
+            created_by="agent",
+            now=now,
+        )
+        if case:
+            service.transition(case.id, KnowledgeGapStatus.OPEN, actor_id="reviewer", reason="confirmed", now=now)
+
+    body = {
+        "project": project.model_dump(mode="json"),
+        "period_start": "2026-09-23T00:00:00Z",
+        "period_end": "2026-09-24T00:00:00Z",
+    }
+    assert client.post("/api/v1/project-agent/knowledge-gaps/digest/preview", json=body).status_code == 401
+    mismatch = client.post(
+        "/api/v1/project-agent/knowledge-gaps/digest/preview",
+        json=body,
+        headers=project_agent_headers(tenant_key="other"),
+    )
+    assert mismatch.status_code == 403
+    response = client.post(
+        "/api/v1/project-agent/knowledge-gaps/digest/preview",
+        json=body,
+        headers=project_agent_headers(),
+    )
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["new_count"] == 1
+    assert "visible gap?" in str(payload["card"])
+    assert "private gap?" not in str(payload["card"])

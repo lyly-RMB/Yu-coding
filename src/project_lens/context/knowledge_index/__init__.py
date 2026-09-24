@@ -14,6 +14,10 @@ from project_lens.context.knowledge_index.embeddings import (
     EmbeddingGenerationError,
     KnowledgeEmbeddingService,
 )
+from project_lens.context.knowledge_index.indexer import (
+    KnowledgeIndexBuildResult,
+    KnowledgeIndexBuildService,
+)
 from project_lens.context.knowledge_index.models import (
     EmbeddingRecord,
     IndexRecordStatus,
@@ -25,7 +29,14 @@ from project_lens.context.knowledge_index.models import (
     stable_chunk_id,
     stable_document_id,
 )
-from project_lens.context.knowledge_index.store import SQLiteKnowledgeIndexStore
+from project_lens.context.knowledge_index.store import (
+    KnowledgeIndexStats,
+    SQLiteKnowledgeIndexStore,
+)
+from project_lens.context.knowledge_index.sync import (
+    KnowledgeIndexSyncResult,
+    KnowledgeIndexSyncService,
+)
 
 __all__ = [
     "EmbeddingRecord",
@@ -39,6 +50,11 @@ __all__ = [
     "KnowledgeDocument",
     "KnowledgeIndexJob",
     "KnowledgeEmbeddingService",
+    "KnowledgeIndexBuildResult",
+    "KnowledgeIndexBuildService",
+    "KnowledgeIndexStats",
+    "KnowledgeIndexSyncResult",
+    "KnowledgeIndexSyncService",
     "KnowledgeObjectKind",
     "MemoryObservationAdapter",
     "ObsidianWikiAdapter",
@@ -49,3 +65,16 @@ __all__ = [
     "stable_chunk_id",
     "stable_document_id",
 ]
+
+
+def __getattr__(name: str):
+    if name == "KnowledgeIndexVectorRetriever":
+        from project_lens.context.retrieval.knowledge_vector import (
+            KnowledgeIndexVectorRetriever,
+        )
+
+        return KnowledgeIndexVectorRetriever
+    raise AttributeError(name)
+
+
+__all__.append("KnowledgeIndexVectorRetriever")

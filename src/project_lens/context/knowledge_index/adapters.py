@@ -39,6 +39,8 @@ class EvidenceAdapter:
             text=value.content,
             evidence_ids=(str(value.id),),
             status=status,
+            valid_from=_optional_datetime(metadata.get("valid_from") or metadata.get("effective_from")),
+            valid_to=_optional_datetime(metadata.get("valid_to") or metadata.get("effective_to")),
             observed_at=value.observed_at,
             access_scope=value.access_scope,
             metadata=metadata,
@@ -241,6 +243,17 @@ def _status(revoked: bool, value: object) -> str:
 
 def _optional(value: object) -> str | None:
     return str(value) if value not in (None, "") else None
+
+
+def _optional_datetime(value: object) -> datetime | None:
+    if value in (None, ""):
+        return None
+    if isinstance(value, datetime):
+        return value
+    try:
+        return datetime.fromisoformat(str(value))
+    except ValueError as exc:
+        raise ValueError("knowledge metadata contains an invalid datetime") from exc
 
 
 def _expired(value: datetime | None) -> bool:

@@ -41,6 +41,9 @@ from project_lens.application.knowledge_operations import (
     KnowledgeOperationStore,
     KnowledgeOperationsService,
 )
+from project_lens.application.knowledge_gap_service import KnowledgeGapService
+from project_lens.application.knowledge_gap_store import SQLiteKnowledgeGapStore
+from project_lens.application.knowledge_gap_digest import KnowledgeGapDigestService
 from project_lens.application.obsidian_inbox_service import (
     ObsidianInboxService,
     SQLiteKnowledgeProposalStore,
@@ -106,6 +109,13 @@ from project_lens.context.embeddings import (
 )
 from project_lens.context.retrieval.config import retrieval_config_from_settings
 from project_lens.context.retrieval.vector import EvidenceVectorRetriever
+from project_lens.context.retrieval.knowledge_vector import KnowledgeIndexVectorRetriever
+from project_lens.context.knowledge_index import (
+    KnowledgeEmbeddingService,
+    KnowledgeIndexBuildService,
+    KnowledgeIndexSyncService,
+    SQLiteKnowledgeIndexStore,
+)
 from project_lens.project_space.policies import ProjectRuntimeContextResolver
 from project_lens.project_space.registry import (
     load_project_spaces_from_dir,
@@ -136,6 +146,7 @@ from project_lens.persistence.sqlite import (
 )
 from project_lens.runtime.lifecycle import LifecycleBus
 from project_lens.context.models import AccessContext
+from project_lens.context.governor import ContextGovernor, ContextGovernorConfig
 from project_lens.workflow.providers.factory import create_model_adapter_from_settings
 
 
@@ -175,9 +186,35 @@ def create_app(database_path: str = ":memory:") -> FastAPI:
     application.state.database = database
     embedding_provider = build_embedding_provider(settings)
     embedding_cache = SQLiteEmbeddingCache(database) if embedding_provider else None
+    knowledge_index_store = SQLiteKnowledgeIndexStore(database)
+    knowledge_embedding_service = (
+        KnowledgeEmbeddingService(knowledge_index_store, embedding_provider)
+        if embedding_provider is not None
+        else None
+    )
+    knowledge_index_builder = KnowledgeIndexBuildService(
+        knowledge_index_store,
+        embedding_service=knowledge_embedding_service,
+    )
+    knowledge_index_sync = KnowledgeIndexSyncService(
+        knowledge_index_store,
+        knowledge_index_builder,
+    )
+    application.state.knowledge_index_store = knowledge_index_store
+    application.state.knowledge_index_builder = knowledge_index_builder
+    application.state.knowledge_index_sync = knowledge_index_sync
     retrieval_config = retrieval_config_from_settings(settings)
     vector_retriever = (
-        EvidenceVectorRetriever(embedding_provider, cache=embedding_cache)
+        KnowledgeIndexVectorRetriever(
+            knowledge_index_store,
+            embedding_provider,
+            chunker_version=retrieval_config.chunker_version,
+            index_version=retrieval_config.index_version,
+            fallback_retriever=EvidenceVectorRetriever(
+                embedding_provider,
+                cache=embedding_cache,
+            ),
+        )
         if (
             embedding_provider is not None
             and retrieval_config.vector_ready
@@ -200,6 +237,12 @@ def create_app(database_path: str = ":memory:") -> FastAPI:
     )
     application.state.context_engine = context_engine
     application.state.evidence_index = evidence_index
+    knowledge_gap_store = SQLiteKnowledgeGapStore(database)
+    application.state.knowledge_gap_store = knowledge_gap_store
+    application.state.knowledge_gap_service = KnowledgeGapService(knowledge_gap_store)
+    application.state.knowledge_gap_digest_service = KnowledgeGapDigestService(
+        knowledge_gap_store, knowledge_gap_store
+    )
     application.state.local_project_registrations = project_registrations
     connector_sync_state_store = ConnectorSyncStateStore(database)
     connector_sync_service = ConnectorSyncService(
@@ -207,6 +250,7 @@ def create_app(database_path: str = ":memory:") -> FastAPI:
         state_store=connector_sync_state_store,
         source_store=source_record_store,
         freshness_max_age_seconds=settings.connector_freshness_max_age_seconds,
+        knowledge_index_sync=knowledge_index_sync,
     )
     application.state.connector_sync_state_store = connector_sync_state_store
     application.state.connector_sync_service = connector_sync_service
@@ -353,6 +397,21 @@ def create_app(database_path: str = ":memory:") -> FastAPI:
         ),
         hermes_api_key=(
             settings.feishu_hermes_api_key or settings.model_openai_api_key
+        ),
+        context_governor=ContextGovernor(
+            ContextGovernorConfig(
+                enabled=settings.context_governor_enabled,
+                model_context_limit_tokens=settings.context_model_limit_tokens,
+                soft_limit_ratio=settings.context_soft_limit_ratio,
+                summarize_ratio=settings.context_summarize_ratio,
+                prune_ratio=settings.context_prune_ratio,
+                rotate_ratio=settings.context_rotate_ratio,
+                hard_limit_ratio=settings.context_hard_limit_ratio,
+                output_reserve_tokens=settings.context_output_reserve_tokens,
+                tool_schema_tokens=settings.context_tool_schema_tokens,
+                provider_overhead_tokens=settings.context_provider_overhead_tokens,
+                max_recovery_retries=settings.context_max_recovery_retry,
+            )
         ),
     )
     hermes_runtime_service = HermesRuntimeService(

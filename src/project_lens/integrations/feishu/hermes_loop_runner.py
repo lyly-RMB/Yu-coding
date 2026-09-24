@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from project_lens.config import assert_external_calls_allowed
+from project_lens.context.governor import ContextGovernor
 from project_lens.domain.models import ProjectRef
 from project_lens.integrations.hermes_plugin.config import ProjectLensPluginConfig
 from project_lens.integrations.hermes_plugin.tools import (
@@ -61,6 +62,7 @@ class HermesLoopRunResult:
     error: str | None = None
     answer_draft: Any | None = None
     verified_answer: Any | None = None
+    context_budget: dict[str, Any] | None = None
 
 
 class HermesLoopRunner(Protocol):
@@ -73,6 +75,21 @@ class HermesLoopRunner(Protocol):
         chat_id: str,
         context: str | None = None,
     ) -> HermesLoopRunResult: ...
+
+
+def _base_system_prompt() -> str:
+    return (
+        "You answer questions about a software project. "
+        "Use only the projectlens_* read-only tools. "
+        "Cite evidence from tool results. Never invent facts. "
+        "Never apply, PR, deploy, rollback, or restart. "
+        "For project identity, project name, or introduction questions, "
+        "prefer projectlens_read_project_file with README.md or a public "
+        "docs path; use projectlens_list_project_files to discover paths, "
+        "and use projectlens_search_context as a supplementary lookup. "
+        "Do not stop after an empty or failed authorized_evidence result; "
+        "continue with the file tools."
+    )
 
 
 def _repair_answer_draft(*, agent: Any, raw_response: str) -> str:
@@ -107,6 +124,7 @@ class HermesAIAgentLoopRunner:
     base_url: str | None = None
     api_key: str | None = field(default=None, repr=False)
     max_iterations: int = 8
+    context_governor: ContextGovernor = field(default_factory=ContextGovernor)
     _registered: bool = field(default=False, init=False, repr=False)
 
     def run(
@@ -127,6 +145,24 @@ class HermesAIAgentLoopRunner:
                 error="empty question",
             )
 
+        base_system_prompt = _base_system_prompt()
+        prepared_context = self.context_governor.prepare(
+            context_text=context or "",
+            question=q,
+            system_prompt=base_system_prompt,
+        )
+        budget = prepared_context.report.as_dict()
+        if prepared_context.report.hard_blocked:
+            return HermesLoopRunResult(
+                final_response="",
+                ok=False,
+                error=(
+                    "上下文预算仍超出 ProjectLens 硬上限，已阻止发送原始请求；"
+                    "请开启新会话或先缩小查询范围。"
+                ),
+                context_budget=budget,
+            )
+
         try:
             self._ensure_hermes_importable()
             self._ensure_tools_registered()
@@ -136,8 +172,12 @@ class HermesAIAgentLoopRunner:
                 final_response="",
                 ok=False,
                 error=f"Hermes unavailable: {exc}",
+                context_budget=budget,
             )
 
+        recovery_attempts = 0
+        recovery_action = "none"
+        recovery_trigger = ""
         token = _REQUEST_CTX.set(
             ToolLoopRequestContext(
                 tenant_id=project.tenant_id,
@@ -147,40 +187,95 @@ class HermesAIAgentLoopRunner:
             )
         )
         try:
-            agent = AIAgent(
-                base_url=self.base_url or None,
-                api_key=self.api_key or None,
-                provider=self.provider or None,
-                model=self.model,
-                quiet_mode=True,
-                skip_memory=True,
-                skip_context_files=True,
-                enabled_toolsets=[TOOLSET_NAME],
-                max_iterations=self.max_iterations,
-                ephemeral_system_prompt=(
-                    "You answer questions about a software project. "
-                    "Use only the projectlens_* read-only tools. "
-                    "Cite evidence from tool results. Never invent facts. "
-                    "Never apply, PR, deploy, rollback, or restart. "
-                    "For project identity, project name, or introduction questions, "
-                    "prefer projectlens_read_project_file with README.md or a public "
-                    "docs path; use projectlens_list_project_files to discover paths, "
-                    "and use projectlens_search_context as a supplementary lookup. "
-                    "Do not stop after an empty or failed authorized_evidence result; "
-                    "continue with the file tools."
-                    + (f"\n\n{context}" if context else "")
-                ),
-                user_id=user_id,
-                chat_id=chat_id,
-                platform="feishu",
-            )
-            raw = agent.run_conversation(q)
-        except Exception as exc:  # noqa: BLE001
-            return HermesLoopRunResult(
-                final_response="",
-                ok=False,
-                error=_classify_hermes_failure(f"Hermes agent loop failed: {exc}"),
-            )
+            while True:
+                agent = AIAgent(
+                    base_url=self.base_url or None,
+                    api_key=self.api_key or None,
+                    provider=self.provider or None,
+                    model=self.model,
+                    quiet_mode=True,
+                    skip_memory=True,
+                    skip_context_files=True,
+                    enabled_toolsets=[TOOLSET_NAME],
+                    max_iterations=self.max_iterations,
+                    ephemeral_system_prompt=(
+                        base_system_prompt
+                        + (f"\n\n{prepared_context.text}" if prepared_context.text else "")
+                    ),
+                    user_id=user_id,
+                    chat_id=chat_id,
+                    platform="feishu",
+                )
+                try:
+                    raw = agent.run_conversation(q)
+                except Exception as exc:  # noqa: BLE001
+                    failure = f"Hermes agent loop failed: {exc}"
+                    if (
+                        recovery_attempts >= self.context_governor.config.max_recovery_retries
+                        or not _is_recoverable_hermes_failure(failure)
+                    ):
+                        budget = _recovery_budget_audit(
+                            budget,
+                            attempts=recovery_attempts,
+                            action=recovery_action,
+                            first_error=recovery_trigger or failure,
+                        )
+                        return HermesLoopRunResult(
+                            final_response="",
+                            ok=False,
+                            error=_classify_hermes_failure(failure),
+                            context_budget=budget,
+                        )
+                    recovery_attempts += 1
+                    recovery_action = "prune_and_retry"
+                    recovery_trigger = failure
+                    prepared_context = self.context_governor.prepare(
+                        context_text=prepared_context.text,
+                        question=q,
+                        system_prompt=base_system_prompt,
+                        force_prune=True,
+                    )
+                    budget = _recovery_budget_audit(
+                        prepared_context.report.as_dict(),
+                        attempts=recovery_attempts,
+                        action=recovery_action,
+                        first_error=recovery_trigger,
+                    )
+                    if prepared_context.report.hard_blocked:
+                        return HermesLoopRunResult(
+                            final_response="",
+                            ok=False,
+                            error="上下文恢复裁剪后仍超过硬上限，已停止重试。",
+                            context_budget=budget,
+                        )
+                    continue
+                if isinstance(raw, dict) and bool(raw.get("failed") or raw.get("error")):
+                    failure = str(raw.get("error") or "Hermes model call failed")
+                    if recovery_attempts < self.context_governor.config.max_recovery_retries and _is_recoverable_hermes_failure(failure):
+                        recovery_attempts += 1
+                        recovery_action = "prune_and_retry"
+                        recovery_trigger = failure
+                        prepared_context = self.context_governor.prepare(
+                            context_text=prepared_context.text,
+                            question=q,
+                            system_prompt=base_system_prompt,
+                            force_prune=True,
+                        )
+                        budget = _recovery_budget_audit(
+                            prepared_context.report.as_dict(),
+                            attempts=recovery_attempts,
+                            action=recovery_action,
+                            first_error=recovery_trigger,
+                        )
+                        if prepared_context.report.hard_blocked:
+                            return HermesLoopRunResult(
+                                final_response="",
+                                ok=False,
+                                error="上下文恢复裁剪后仍超过硬上限，已停止重试。",
+                                context_budget=budget,
+                            )
+                        continue
+                break
         finally:
             _REQUEST_CTX.reset(token)
 
@@ -189,13 +284,31 @@ class HermesAIAgentLoopRunner:
                 final_response=str(raw or ""),
                 ok=False,
                 error="Hermes returned a non-dict conversation result",
+                context_budget=budget,
             )
 
         messages = tuple(raw.get("messages") or ())
+        budget = self.context_governor.observe_tool_loop(
+            prepared_context,
+            messages=messages,
+        ).as_dict()
+        if recovery_attempts:
+            budget = _recovery_budget_audit(
+                budget,
+                attempts=recovery_attempts,
+                action=recovery_action,
+                first_error=recovery_trigger,
+            )
         tool_calls = extract_tool_calls_from_messages(messages)
         final_response = str(raw.get("final_response") or "").strip()
         failed = bool(raw.get("failed") or raw.get("error"))
         if failed:
+            budget = _recovery_budget_audit(
+                budget,
+                attempts=recovery_attempts,
+                action=recovery_action,
+                first_error=recovery_trigger or str(raw.get("error") or "Hermes model call failed"),
+            )
             return HermesLoopRunResult(
                 final_response=final_response,
                 tool_calls=tool_calls,
@@ -204,6 +317,7 @@ class HermesAIAgentLoopRunner:
                 error=_classify_hermes_failure(
                     str(raw.get("error") or "Hermes model call failed")
                 ),
+                context_budget=budget,
             )
         from project_lens.agent.hermes_answer_parser import (
             parse_hermes_answer,
@@ -240,6 +354,7 @@ class HermesAIAgentLoopRunner:
                 messages=messages,
                 ok=False,
                 error=_classify_hermes_failure(error),
+                context_budget=budget,
             )
 
         if not _has_citation_ready_evidence(tool_calls):
@@ -249,6 +364,7 @@ class HermesAIAgentLoopRunner:
                 messages=messages,
                 ok=False,
                 error="Hermes completed without citation-ready project evidence",
+                context_budget=budget,
             )
 
         answer_draft = parse_structured_hermes_answer(final_response)
@@ -277,6 +393,7 @@ class HermesAIAgentLoopRunner:
             error=None,
             answer_draft=answer_draft,
             verified_answer=verified_answer,
+            context_budget=budget,
         )
 
     def _ensure_hermes_importable(self) -> None:
@@ -380,6 +497,64 @@ def _classify_hermes_failure(error: str) -> str:
     return error
 
 
+def _is_recoverable_hermes_failure(error: str) -> bool:
+    """Allow one recovery attempt for transient/provider or context failures."""
+
+    lowered = error.casefold()
+    if any(
+        marker in lowered
+        for marker in (
+            "401",
+            "402",
+            "403",
+            "unauthorized",
+            "forbidden",
+            "invalid api key",
+            "authentication",
+            "invalid request",
+            "bad request",
+        )
+    ):
+        return False
+    return any(
+        marker in lowered
+        for marker in (
+            "context length",
+            "context window",
+            "maximum context",
+            "max tokens",
+            "too many tokens",
+            "token limit",
+            "429",
+            "500",
+            "502",
+            "503",
+            "504",
+            "timeout",
+            "timed out",
+            "connection",
+            "temporarily unavailable",
+            "rate limit",
+            "gateway",
+            "overloaded",
+        )
+    )
+
+
+def _recovery_budget_audit(
+    budget: dict[str, Any],
+    *,
+    attempts: int,
+    action: str,
+    first_error: str,
+) -> dict[str, Any]:
+    updated = dict(budget)
+    updated["recovery_attempts"] = attempts
+    updated["recovery_action"] = action
+    updated["recovery_trigger"] = _classify_hermes_failure(first_error)
+    return updated
+
+
 class _HermesRegistryToolContext:
     """Minimal PluginContext-like wrapper over Hermes tools.registry."""
 
@@ -430,7 +605,11 @@ def _make_request_scoped_handler(
             kwargs.setdefault("project_id", ctx.project_id)
             kwargs.setdefault("user_id", ctx.user_id)
             kwargs.setdefault("chat_id", ctx.chat_id)
-        return base(args, **kwargs)
+        raw = base(args, **kwargs)
+        return json.dumps(
+            _compact_tool_envelope(_decode_envelope(raw)),
+            ensure_ascii=False,
+        )
 
     _handler.__name__ = tool_name
     _handler.__qualname__ = tool_name
@@ -499,3 +678,231 @@ def _decode_envelope(raw: Any) -> dict[str, Any]:
         if isinstance(decoded, dict):
             return decoded
     return {"ok": False, "error": f"unexpected tool result type: {type(raw).__name__}"}
+
+
+def _compact_tool_envelope(envelope: dict[str, Any]) -> dict[str, Any]:
+    """Return the bounded EvidenceCard view sent into the Hermes transcript.
+
+    ProjectLens keeps the original envelope behind its tool API. Hermes only
+    needs enough provenance to decide whether to ask for a detail again.
+    """
+
+    result_id = str(envelope.get("tool_result_id") or "")
+    references = [
+        ref
+        for key in ("citations", "evidence_refs")
+        for ref in envelope.get(key) or []
+        if isinstance(ref, dict) and (ref.get("id") or ref.get("evidence_id"))
+    ]
+    compact_references = _dedupe_references(references)
+    cards = [_evidence_card(ref) for ref in compact_references]
+    compact: dict[str, Any] = {
+        key: envelope[key]
+        for key in (
+            "ok",
+            "tool_name",
+            "internal_tool_name",
+            "tool_result_id",
+            "project",
+            "summary",
+            "unknowns",
+            "conflicts",
+            "error_code",
+            "message",
+            "retryable",
+            "agent_recovery_hint",
+        )
+        if key in envelope
+    }
+    # Keep provenance fields, but never forward arbitrary reference payloads
+    # such as content/body/text into the Hermes transcript.
+    compact["citations"] = compact_references
+    compact["evidence_refs"] = compact_references
+    compact["evidence_cards"] = _dedupe_cards(cards)
+    compact["audit_ref"] = _compact_audit_ref(envelope.get("audit_ref"))
+    compact["visibility_scope"] = _compact_visibility(envelope.get("visibility_scope"))
+    if result_id:
+        compact["detail_pointer"] = f"projectlens://tool-result/{result_id}"
+    if isinstance(envelope.get("result"), dict):
+        compact["result"] = _compact_payload(
+            envelope["result"],
+            tool_result_id=result_id,
+            allow_detail_preview=str(envelope.get("internal_tool_name") or "")
+            in {"read_project_file", "read_wiki_page", "get_memory_detail", "get_run_detail"},
+        )
+    return compact
+
+
+def _evidence_card(reference: dict[str, Any]) -> dict[str, Any]:
+    evidence_id = str(reference.get("id") or reference.get("evidence_id") or "")
+    source_key = str(
+        reference.get("source_uri")
+        or reference.get("source_key")
+        or reference.get("source")
+        or ""
+    )
+    summary = str(reference.get("summary") or "").strip()
+    return {
+        "evidence_id": evidence_id,
+        "source_key": source_key,
+        "revision": reference.get("revision"),
+        "content_hash": reference.get("content_hash"),
+        "source_type": reference.get("kind"),
+        "authority": reference.get("authority") or "unknown",
+        "status": reference.get("status") or "unknown",
+        "short_summary": summary[:240],
+        "key_facts": [str(item)[:240] for item in (reference.get("key_facts") or [])[:8]],
+        "conflicts": [str(item)[:240] for item in (reference.get("conflicts") or [])[:8]],
+        "detail_pointer": f"projectlens://evidence/{evidence_id}",
+    }
+
+
+def _compact_reference(reference: dict[str, Any]) -> dict[str, Any]:
+    """Keep only citation identity and provenance at the Hermes boundary."""
+
+    allowed = (
+        "id",
+        "evidence_id",
+        "kind",
+        "source_uri",
+        "source_key",
+        "summary",
+        "revision",
+        "content_hash",
+        "authority",
+        "status",
+        "key_facts",
+        "conflicts",
+    )
+    compact = {
+        key: reference[key]
+        for key in allowed
+        if key in reference and key not in {"key_facts", "conflicts"}
+    }
+    for key in ("key_facts", "conflicts"):
+        values = reference.get(key)
+        if isinstance(values, list):
+            compact[key] = [str(item)[:240] for item in values[:8]]
+    return compact
+
+
+def _dedupe_references(references: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    seen: set[tuple[str, str | None]] = set()
+    result: list[dict[str, Any]] = []
+    for reference in references:
+        compact = _compact_reference(reference)
+        identity = str(
+            compact.get("source_uri")
+            or compact.get("source_key")
+            or compact.get("id")
+            or compact.get("evidence_id")
+            or ""
+        )
+        revision = compact.get("revision")
+        key = (identity, str(revision) if revision is not None else None)
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(compact)
+        if len(result) >= 24:
+            break
+    return result
+
+
+def _dedupe_cards(cards: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    seen: set[tuple[str, str | None]] = set()
+    result: list[dict[str, Any]] = []
+    for card in cards[:24]:
+        key = (str(card.get("source_key") or card.get("evidence_id") or ""), card.get("revision"))
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(card)
+    return result
+
+
+def _compact_payload(
+    value: Any,
+    *,
+    tool_result_id: str,
+    allow_detail_preview: bool = False,
+    depth: int = 0,
+) -> Any:
+    if depth > 3:
+        return "[detail omitted]"
+    if isinstance(value, dict):
+        compact: dict[str, Any] = {}
+        for key, item in value.items():
+            normalized = str(key).casefold()
+            if normalized in {"content", "raw", "body", "text"} and isinstance(item, str):
+                if allow_detail_preview and depth <= 1:
+                    compact[key] = item[:1_200].rstrip() + ("…" if len(item) > 1_200 else "")
+                continue
+            if normalized in {"observations", "events"} and isinstance(item, list):
+                compact[key] = {"count": len(item), "detail_pointer": _pointer(tool_result_id)}
+                continue
+            compact[key] = _compact_payload(
+                item,
+                tool_result_id=tool_result_id,
+                allow_detail_preview=allow_detail_preview,
+                depth=depth + 1,
+            )
+        if tool_result_id and any(name in compact for name in ("memory_id", "run_id", "path")):
+            compact.setdefault("detail_pointer", _pointer(tool_result_id))
+        return compact
+    if isinstance(value, list):
+        return [
+            _compact_payload(
+                item,
+                tool_result_id=tool_result_id,
+                allow_detail_preview=allow_detail_preview,
+                depth=depth + 1,
+            )
+            for item in value[:24]
+        ]
+    if isinstance(value, str):
+        return value if len(value) <= 240 else value[:239].rstrip() + "…"
+    return value
+
+
+def _pointer(tool_result_id: str) -> str | None:
+    return f"projectlens://tool-result/{tool_result_id}" if tool_result_id else None
+
+
+def _compact_audit_ref(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        return {"allow_apply": False}
+    allowed = {
+        "tool_name",
+        "internal_tool_name",
+        "project_id",
+        "tenant_id",
+        "policy_version",
+        "role",
+        "read_tool_calls",
+        "read_tool_names",
+        "allow_apply",
+        "derived",
+        "retrieval_mode",
+    }
+    result = {key: value[key] for key in allowed if key in value}
+    result["allow_apply"] = False
+    return result
+
+
+def _compact_visibility(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        return {}
+    return {
+        key: value[key]
+        for key in (
+            "tenant_id",
+            "project_id",
+            "actor_id",
+            "chat_id",
+            "role",
+            "visibility_level",
+            "policy_version",
+        )
+        if key in value
+    }

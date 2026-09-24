@@ -1,5 +1,22 @@
 # Long-term Memory Development Implementation
 
+## 2026-09-22 Hermes context compression quick implementation
+
+Status: phases 1-7 implementation complete; release gate remains data-blocked
+
+- [x] Add bounded context budget settings and `ContextGovernor`.
+- [x] Integrate pre-request pruning and post-tool-result accounting into Hermes.
+- [x] Add budget audit data to Hermes loop results and answer envelopes.
+- [x] Add EvidenceCard-bound tool envelopes and detail pointers.
+- [x] Add structured session state, anchored summaries, handoff markers, and rotation state.
+- [x] Add immutable prepared-context snapshots, stable sections, and unified budget audit fields.
+- [x] Persist rotation markers and inject bounded handoff summaries into the next Feishu request.
+- [x] Implement one-time provider/context recovery with forced prune and retry audit.
+- [x] Add deterministic compression probes, report generation, and release-size data gate.
+- [x] Add focused governor/Hermes/session regression tests.
+- [x] Add replay/probe evaluation and rollout gates.
+- [x] Run focused tests, compilation, and diff checks.
+
 ## 2026-09-18 Knowledge retrieval vectorization and evaluation plan
 
 Status: stage 7 evaluation infrastructure in progress; stages 0-6 complete; vector mode enabled for manual testing
@@ -42,7 +59,8 @@ Status: stage 7 evaluation infrastructure in progress; stages 0-6 complete; vect
 ## 2026-09-18 Stage 7 Stop Point
 
 Stage 7's executable evaluation infrastructure is implemented, but the stage is
-not release-complete because the repository only has a 10-case development set.
+not release-complete because the repository only has a 12-case development set
+and no real answer replay dataset.
 Stage 8 remains deferred.
 
 Manual testing configuration is currently:

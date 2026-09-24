@@ -139,6 +139,52 @@ def test_project_timeline_endpoint_respects_permissions() -> None:
     assert response.json()["events"] == []
 
 
+def test_knowledge_index_status_endpoint_is_acl_filtered() -> None:
+    client = TestClient(create_app())
+    response = client.post(
+        "/api/v1/projects/knowledge-index/status",
+        json={
+            "project": {"tenant_id": "demo", "project_id": "payment"},
+            "user_id": "u1",
+            "permissions": ["project:payment:read"],
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["index_stats"]["documents"] == 0
+
+    denied = client.post(
+        "/api/v1/projects/knowledge-index/status",
+        json={
+            "project": {"tenant_id": "demo", "project_id": "payment"},
+            "user_id": "u1",
+            "permissions": [],
+        },
+    )
+    assert denied.status_code == 403
+
+
+def test_knowledge_index_sync_dry_run_reports_planned_work_without_writes() -> None:
+    client = TestClient(create_app())
+    response = client.post(
+        "/api/v1/projects/knowledge-index/sync",
+        json={
+            "project": {"tenant_id": "demo", "project_id": "payment"},
+            "user_id": "u1",
+            "permissions": ["project:payment:read"],
+            "mode": "full",
+            "dry_run": True,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["dry_run"] is True
+    assert body["input_records"] > 0
+    assert body["chunks_written"] > 0
+    assert body["index_stats"]["documents"] == 0
+
+
 def test_project_change_impact_endpoint_returns_authorized_summary() -> None:
     client = TestClient(create_app())
     response = client.post(

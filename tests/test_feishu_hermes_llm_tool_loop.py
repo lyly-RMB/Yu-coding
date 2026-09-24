@@ -15,8 +15,11 @@ from project_lens.integrations.feishu.hermes_loop_runner import (
     HermesAIAgentLoopRunner,
     HermesLoopRunResult,
     HermesLoopToolCall,
+    _is_recoverable_hermes_failure,
+    _compact_tool_envelope,
     extract_tool_calls_from_messages,
 )
+from project_lens.context.governor import ContextGovernor, ContextGovernorConfig
 from project_lens.integrations.feishu.hermes_tool_loop import (
     FeishuHermesToolLoopBridge,
     hermes_loop_scratchpad_entry,
@@ -215,6 +218,61 @@ def test_hermes_loop_scratchpad_entry_is_compact() -> None:
     assert entry["allow_apply"] is False
     assert entry["tool_names"] == ["projectlens_authorized_evidence"]
     UUID(entry["loop_id"])
+
+
+def test_hermes_tool_envelope_is_evidence_card_bounded() -> None:
+    full_body = "SECRET FULL BODY " + ("x" * 5_000)
+    envelope = _compact_tool_envelope(
+        {
+            "ok": True,
+            "tool_name": "projectlens_read_project_file",
+            "tool_result_id": "tr-bounded",
+            "summary": "bounded summary",
+            "citations": [
+                {
+                    "id": "ev-1",
+                    "source_uri": "docs/design.md",
+                    "revision": "r7",
+                    "content_hash": "sha256:abc",
+                    "summary": "design summary",
+                    "content": full_body,
+                },
+                {
+                    "id": "ev-1-duplicate",
+                    "source_uri": "docs/design.md",
+                    "revision": "r7",
+                    "summary": "duplicate",
+                },
+            ],
+            "evidence_refs": [],
+            "result": {"content": full_body, "path": "docs/design.md"},
+        }
+    )
+    serialized = str(envelope)
+    assert full_body not in serialized
+    assert envelope["citations"][0]["id"] == "ev-1"
+    assert envelope["evidence_cards"][0]["evidence_id"] == "ev-1"
+    assert envelope["evidence_cards"][0]["source_key"] == "docs/design.md"
+    assert envelope["evidence_cards"][0]["revision"] == "r7"
+    assert envelope["evidence_cards"][0]["content_hash"] == "sha256:abc"
+    assert len(envelope["citations"]) == 1
+    assert envelope["result"]["path"] == "docs/design.md"
+
+
+def test_hermes_detail_preview_is_bounded_and_other_content_is_omitted() -> None:
+    body = "a" * 2_000
+    detail = _compact_tool_envelope(
+        {
+            "ok": True,
+            "tool_name": "projectlens_read_project_file",
+            "internal_tool_name": "read_project_file",
+            "tool_result_id": "tr-detail",
+            "result": {"content": body, "nested": {"text": body}},
+        }
+    )
+    assert len(detail["result"]["content"]) == 1_201
+    assert len(detail["result"]["nested"]["text"]) == 1_201
+    assert detail["result"]["nested"]["text"] != body
 
 
 def test_extract_tool_calls_from_messages_keeps_envelopes() -> None:
@@ -494,6 +552,104 @@ def test_real_runner_classifies_model_exception_as_model_failure(
     assert result.ok is False
     assert result.error is not None
     assert result.error.startswith("模型调用失败：")
+
+
+def test_real_runner_recovers_once_after_transient_provider_failure(
+    monkeypatch,  # noqa: ANN001
+) -> None:
+    captured_prompts: list[str] = []
+    evidence_id = "11111111-1111-1111-1111-111111111111"
+
+    class FakeAIAgent:
+        calls = 0
+
+        def __init__(self, **kwargs):  # noqa: ANN003
+            captured_prompts.append(str(kwargs.get("ephemeral_system_prompt") or ""))
+
+        def run_conversation(self, question: str) -> dict:
+            FakeAIAgent.calls += 1
+            if FakeAIAgent.calls == 1:
+                raise RuntimeError("HTTP 502 bad gateway")
+            return {
+                "final_response": (
+                    '{"facts":[{"text":"owner is Ada",'
+                    '"citations":["' + evidence_id + '"]}]}'
+                ),
+                "messages": [
+                    {
+                        "role": "assistant",
+                        "tool_calls": [
+                            {
+                                "id": "call-1",
+                                "function": {
+                                    "name": "projectlens_search_context",
+                                    "arguments": "{}",
+                                },
+                            }
+                        ],
+                    },
+                    {
+                        "role": "tool",
+                        "tool_call_id": "call-1",
+                        "content": (
+                            '{"ok":true,"citations":[{"id":"'
+                            + evidence_id
+                            + '","source_uri":"README.md","summary":"owner is Ada"}]}'
+                        ),
+                    },
+                ],
+            }
+
+    fake_module = ModuleType("run_agent")
+    fake_module.AIAgent = FakeAIAgent  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "run_agent", fake_module)
+    monkeypatch.setattr(
+        "project_lens.integrations.feishu.hermes_loop_runner.assert_external_calls_allowed",
+        lambda *args, **kwargs: None,
+    )
+    runner = HermesAIAgentLoopRunner(
+        client=object(),
+        config=ProjectLensPluginConfig(),
+        context_governor=ContextGovernor(
+            ContextGovernorConfig(
+                model_context_limit_tokens=10_000,
+                soft_limit_ratio=0.45,
+                summarize_ratio=0.60,
+                prune_ratio=0.75,
+                rotate_ratio=0.85,
+                hard_limit_ratio=0.95,
+                output_reserve_tokens=100,
+                tool_schema_tokens=50,
+                provider_overhead_tokens=25,
+                max_recovery_retries=1,
+            )
+        ),
+    )
+    runner._registered = True
+    context = "## Confirmed Facts\n- owner is Ada\n" + ("duplicate noise\n" * 300)
+
+    result = runner.run(
+        question="owner?",
+        project=ProjectRef(tenant_id="demo", project_id="payment"),
+        user_id="user-1",
+        chat_id="chat-1",
+        context=context,
+    )
+
+    assert result.ok is True
+    assert FakeAIAgent.calls == 2
+    assert len(captured_prompts) == 2
+    assert captured_prompts[0].count("duplicate noise") > captured_prompts[1].count("duplicate noise")
+    assert result.context_budget is not None
+    assert result.context_budget["recovery_attempts"] == 1
+    assert result.context_budget["recovery_action"] == "prune_and_retry"
+
+
+def test_non_recoverable_auth_failure_is_not_retried() -> None:
+    assert _is_recoverable_hermes_failure("HTTP 401 invalid api key") is False
+    assert _is_recoverable_hermes_failure("HTTP 400 invalid request") is False
+    assert _is_recoverable_hermes_failure("HTTP 502 bad gateway") is True
+    assert _is_recoverable_hermes_failure("context length exceeded") is True
 
 
 def test_real_runner_repr_does_not_expose_api_key() -> None:

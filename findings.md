@@ -1,5 +1,19 @@
 # Findings: Hermes-only Migration
 
+## 2026-09-22 Hermes context compression
+
+- Existing `src/project_lens/workflow/context_compression.py` preserves pinned IDs, paths, traceback snippets, and rolling summaries; reuse it instead of creating a second session-summary system.
+- `HermesAIAgentLoopRunner` receives only a rendered context string and Hermes internally owns the transient transcript, so the first safe control point is before `run_conversation()` and while building the tool-loop result envelope.
+- Tool calls currently retain full envelopes in the in-memory result and expose only a compact audit pointer to the session; this is the right boundary for budget accounting and EvidenceCard-style output in the next slice.
+- ProjectLens must use a business context budget below the provider maximum; provider context length alone is not a safe compression trigger.
+- Hermes transcript contents are bounded at the tool boundary. Full tool bodies remain available only through ProjectLens detail pointers.
+- The durable continuity source is `ProjectSessionState` plus anchored incremental summaries; Hermes transcript rotation does not own business state.
+- Prepared context has an immutable snapshot identity derived from materialized context, question, system prompt, schema budget, and renderer version. The content hash remains independent of request identity for deduplication and audit.
+- Hermes requests are instantiated per run, so the practical rotation boundary is the Feishu session: persist `rotation_pending` after a high-utilization run, then inject a bounded handoff into the next run and clear the marker only after handoff creation.
+- Provider recovery must never resend the original oversized context. The implemented retry creates a fresh Hermes agent with `force_prune=True` and records the recovery decision in the final budget audit.
+- Compression quality must be judged with probes, not token reduction alone. The first fixture covers recall, artifact, decision, continuation, citation, and negative probes and reports `insufficient_data` until the dataset reaches 50 cases.
+- The release gate is intentionally data-blocked at 2 cases; the current 100% probe rate is a development signal, not a production quality claim.
+
 ## 2026-09-18 Knowledge retrieval findings
 
 - Stage 1 uses stable document IDs keyed by tenant, project, object kind, object ID, and revision. This preserves old source revisions instead of overwriting them.
@@ -33,6 +47,8 @@
 - Once the dataset reaches the release threshold, the gate requires explicit temporal, abstention, conflict, and fallback measurements instead of treating absent strata as perfect.
 - The development replay now loads payment task/release fixtures. Its temporal case passes at `as_of=2026-07-21T00:00:00+00:00`; unrelated documents observed after that time remain a retrieval-quality signal, not a security leakage.
 - The deterministic fake embedding provider produced hybrid Recall@5=0.875 versus lexical Recall@5=1.0 on the 12-case development fixture. This is a useful regression demonstration, not a real embedding quality measurement.
+- Current stage 7 report status is intentionally `insufficient_data` with blocker `golden_cases<100`; the temporal case passes and security checks are zero.
+- The workspace contains an unrelated untracked `.env.bak-20260918-144101` temporary backup; it was preserved and not read or exposed.
 - Existing `ContextEngine.search()` uses `ExactCodeRetriever` plus `BM25Retriever` and `ReciprocalRankFusion`; it does not yet use embeddings for primary Evidence retrieval.
 - `context/embeddings.py` already provides an OpenAI-compatible provider, SQLite cache keyed by project/object/model/content hash, and ProjectMemory/Episode scorers with safe failure behavior.
 - `memory_retrieval.py` already performs lexical/semantic RRF, recency weighting, MMR, duplicate suppression, and conflict hints, but this logic is not shared with SourceRecord/Evidence/Wiki.
@@ -41,6 +57,35 @@
 - `SourceRecord` preserves tenant/project/source/revision/content hash/access scope and is suitable as the provenance anchor for vectorized chunks.
 - Obsidian Wiki is a derived, manifest-bounded reading layer and must remain a lower-authority retrieval channel than Evidence.
 - The repository contains no `C:/Users/Administrator/Desktop/qa_demo` checkout; the design therefore relies on the current ProjectLens contracts rather than copying an external retriever implementation.
+- The durable vector query path is now implemented in `KnowledgeIndexVectorRetriever`.
+  It joins persisted chunks and embeddings by current content/model/chunker versions,
+  applies lifecycle checks, and projects only back to already authorized Evidence
+  candidates.
+- Automatic application wiring remains intentionally deferred: the current startup
+  path has no Evidence-to-knowledge-index full/incremental builder, so switching the
+  default retriever before index population would create an apparently enabled but
+  empty vector path.
+- `KnowledgeIndexBuildService` now supplies that missing Evidence-to-index pipeline
+  for explicit sync/rebuild callers. It retires old source revisions by stable
+  source identity and keeps historical rows for audit/replay.
+- Connector sync now invokes the explicit index sync after Evidence persistence,
+  while isolating embedding failures from the source synchronization result. The
+  application exposes the index store/builder/sync service on `app.state`, but does
+  not build on startup.
+- The application now selects the persisted vector retriever when vector config is
+  ready. It falls back per candidate for not-yet-indexed Evidence, but blocks
+  fallback for superseded source identities so old revisions do not re-enter hybrid
+  search after a durable index update.
+- Knowledge index operations are now explicit HTTP calls: status is read-only, and
+  sync supports incremental/full plus dry-run. Real embedding quality still depends
+  on the user-configured provider/model and must be evaluated separately.
+- On September 22, 2026, the configured real embedding provider returned 1024-
+  dimensional vectors successfully. The payment project full build completed 8/8
+  embeddings with zero failures, and a real hybrid query used 8 persisted vector
+  rows with zero fallback candidates.
+- `index_version` is now part of the embedding/job/query contract. v1 and v2 can be
+  stored and queried independently; model/index rotation can therefore build a
+  parallel index before switching the active version.
 - Full retrieval quality cannot be claimed until a versioned, role-aware golden set with at least 100 anonymized real questions exists.
 - The implementation plan is intentionally staged: Evidence hybrid retrieval precedes Memory/Episode/Wiki unification, and evaluation gates precede production enablement.
 

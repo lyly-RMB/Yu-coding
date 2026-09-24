@@ -1,7 +1,7 @@
 """HTTP request and response schemas."""
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -247,11 +247,52 @@ class ConnectorSyncResultResponse(BaseModel):
     stale: bool = False
     freshness_warning: str | None = None
     error: str | None = None
+    knowledge_indexed_count: int = 0
+    knowledge_index_error: str | None = None
 
 
 class ProjectConnectorSyncResponse(BaseModel):
     project: ProjectRef
     results: tuple[ConnectorSyncResultResponse, ...] = ()
+
+
+class ProjectKnowledgeIndexSyncRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    project: ProjectRef
+    user_id: str = Field(min_length=1, max_length=100)
+    permissions: tuple[str, ...] = ()
+    mode: Literal["incremental", "full"] = "incremental"
+    dry_run: bool = False
+
+
+class ProjectKnowledgeIndexStatusRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    project: ProjectRef
+    user_id: str = Field(min_length=1, max_length=100)
+    permissions: tuple[str, ...] = ()
+
+
+class ProjectKnowledgeIndexStatusResponse(BaseModel):
+    project: ProjectRef
+    index_stats: dict[str, int] = Field(default_factory=dict)
+
+
+class ProjectKnowledgeIndexSyncResponse(BaseModel):
+    project: ProjectRef
+    mode: str
+    dry_run: bool
+    batches: int
+    input_records: int
+    documents_upserted: int
+    chunks_written: int
+    chunks_deactivated: int
+    deactivated_documents: int
+    embedding_completed: int = 0
+    embedding_failed: int = 0
+    embedding_cache_hits: int = 0
+    index_stats: dict[str, int] = Field(default_factory=dict)
 
 
 class ProjectWikiDraftRequest(BaseModel):

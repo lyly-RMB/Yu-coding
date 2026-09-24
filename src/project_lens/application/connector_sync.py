@@ -42,6 +42,8 @@ class ConnectorSyncResult:
     stale: bool = False
     freshness_warning: str | None = None
     error: str | None = None
+    knowledge_indexed_count: int = 0
+    knowledge_index_error: str | None = None
 
 
 class ConnectorSyncService:
@@ -55,15 +57,20 @@ class ConnectorSyncService:
         source_store: SourceRecordStore | None = None,
         freshness_max_age_seconds: int = 86_400,
         memory_review_service=None,
+        knowledge_index_sync=None,
     ) -> None:
         self._index = evidence_index
         self._states = state_store
         self._sources = source_store or InMemorySourceRecordStore()
         self._freshness_max_age_seconds = freshness_max_age_seconds
         self._memory_review_service = memory_review_service
+        self._knowledge_index_sync = knowledge_index_sync
 
     def configure_memory_review_service(self, service) -> None:
         self._memory_review_service = service
+
+    def configure_knowledge_index_sync(self, service) -> None:
+        self._knowledge_index_sync = service
 
     async def sync_connector(
         self,
@@ -177,6 +184,32 @@ class ConnectorSyncService:
             project=project,
             source_store=self._sources,
         )
+        knowledge_indexed_count = 0
+        knowledge_index_error = None
+        if self._knowledge_index_sync is not None:
+            try:
+                knowledge_items = [
+                    item
+                    for item in (*batch.added, *batch.updated)
+                    if item.project.tenant_id == project.tenant_id
+                    and item.project.project_id == project.project_id
+                ]
+                if batch.deleted:
+                    revoked_ids = set(batch.deleted)
+                    knowledge_items.extend(
+                        item
+                        for item in self._index.all(include_revoked=True)
+                        if item.source.source_id in revoked_ids
+                        and item.project.tenant_id == project.tenant_id
+                        and item.project.project_id == project.project_id
+                    )
+                knowledge_result = self._knowledge_index_sync.sync(
+                    tuple(knowledge_items),
+                    mode="incremental",
+                )
+                knowledge_indexed_count = knowledge_result.build.chunks_written
+            except Exception as exc:  # noqa: BLE001 - optional index boundary
+                knowledge_index_error = type(exc).__name__
         success = ConnectorSyncState(
             connector=connector.name,
             tenant_id=project.tenant_id,
@@ -225,6 +258,8 @@ class ConnectorSyncService:
                 now=clock,
             ),
             freshness_warning=warning,
+            knowledge_indexed_count=knowledge_indexed_count,
+            knowledge_index_error=knowledge_index_error,
         )
 
     def freshness_for(

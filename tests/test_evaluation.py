@@ -3,6 +3,12 @@ from pathlib import Path
 from project_lens.evaluation.baseline import run_baseline
 from project_lens.evaluation.retrieval import mean_reciprocal_rank, ndcg_at_k, recall_at_k
 from project_lens.evaluation.run_context import evaluate
+from project_lens.context.governor import ContextGovernor, ContextGovernorConfig
+from project_lens.evaluation.context_compression import (
+    CompressionCase,
+    CompressionProbe,
+    evaluate_compression,
+)
 
 
 def test_retrieval_metrics() -> None:
@@ -36,3 +42,37 @@ def test_lexical_baseline_runner_is_reproducible() -> None:
     assert result["retrieval"]["mode"] == "lexical"
     assert result["retrieval"]["vector_enabled"] is False
     assert result["report"]["case_count"] == 10
+
+
+def test_context_compression_evaluation_reports_probe_dimensions_and_gate() -> None:
+    case = CompressionCase(
+        case_id="case-1",
+        context_text=(
+            "## Confirmed Facts\n- error PAY-42\n"
+            "## Decisions\n- keep null guard\n"
+            "## Next Steps\n- add regression test\n"
+            + "noise\n" * 100
+        ),
+        question="continue",
+        probes=(
+            CompressionProbe("fact", "recall", expected=("PAY-42",)),
+            CompressionProbe("decision", "decision", expected=("null guard",)),
+            CompressionProbe("next", "continuation", expected=("regression test",)),
+            CompressionProbe("negative", "negative", forbidden=("unknown-release",)),
+        ),
+    )
+    report = evaluate_compression(
+        (case,),
+        governor=ContextGovernor(
+            ContextGovernorConfig(
+                model_context_limit_tokens=2_000,
+                output_reserve_tokens=100,
+                tool_schema_tokens=50,
+                provider_overhead_tokens=25,
+            )
+        ),
+    )
+    assert report.status == "insufficient_data"
+    assert report.probe_pass_rate == 1.0
+    assert report.token_reduction_ratio > 0
+    assert report.as_dict()["by_kind"]["decision"]["passed"] == 1

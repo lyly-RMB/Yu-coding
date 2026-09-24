@@ -28,6 +28,10 @@ from project_lens.api.schemas import (
     ProjectConnectorSyncRequest,
     ProjectConnectorSyncResponse,
     ConnectorSyncResultResponse,
+    ProjectKnowledgeIndexSyncRequest,
+    ProjectKnowledgeIndexSyncResponse,
+    ProjectKnowledgeIndexStatusRequest,
+    ProjectKnowledgeIndexStatusResponse,
     ProjectWikiDraftRequest,
     ProjectWikiDraftResponse,
     WikiPageDraftResponse,
@@ -51,6 +55,8 @@ from project_lens.application.feishu_doc_sync import FeishuDocumentSyncService
 from project_lens.application.feishu_doc_sync_status import FeishuDocSyncStatusStore
 from project_lens.application.connector_sync_status import ConnectorSyncStateStore, sync_state_is_stale
 from project_lens.application.connector_sync import ConnectorSyncService
+from project_lens.context.knowledge_index.sync import KnowledgeIndexSyncService
+from project_lens.context.knowledge_index.store import SQLiteKnowledgeIndexStore
 from project_lens.application.project_connector_factory import ProjectConnectorFactory
 from project_lens.application.wiki_compiler import WikiDraftCompiler
 from project_lens.application.wiki_compiler import WikiDraftWorkflowService
@@ -88,6 +94,14 @@ def get_connector_sync_state_store(request: Request) -> ConnectorSyncStateStore 
 
 def get_connector_sync_service(request: Request) -> ConnectorSyncService | None:
     return getattr(request.app.state, "connector_sync_service", None)
+
+
+def get_knowledge_index_sync(request: Request) -> KnowledgeIndexSyncService | None:
+    return getattr(request.app.state, "knowledge_index_sync", None)
+
+
+def get_knowledge_index_store(request: Request) -> SQLiteKnowledgeIndexStore | None:
+    return getattr(request.app.state, "knowledge_index_store", None)
 
 
 def get_project_connector_factory(request: Request) -> ProjectConnectorFactory | None:
@@ -464,9 +478,99 @@ async def sync_project_connectors(
                 stale=item.stale,
                 freshness_warning=item.freshness_warning,
                 error=item.error,
+                knowledge_indexed_count=item.knowledge_indexed_count,
+                knowledge_index_error=item.knowledge_index_error,
             )
             for item in results
         ),
+    )
+
+
+@router.post(
+    "/projects/knowledge-index/status",
+    response_model=ProjectKnowledgeIndexStatusResponse,
+    tags=["projects"],
+)
+def project_knowledge_index_status(
+    payload: ProjectKnowledgeIndexStatusRequest,
+    store: SQLiteKnowledgeIndexStore | None = Depends(get_knowledge_index_store),
+    registrations: tuple[LocalProjectRegistration, ...] = Depends(get_local_registrations),
+) -> ProjectKnowledgeIndexStatusResponse:
+    registration = _match_registration(payload.project, registrations)
+    if registration is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="project is not registered")
+    if registration.access_scope not in payload.permissions:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="missing project access scope for knowledge index status",
+        )
+    if store is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="knowledge index is not configured",
+        )
+    stats = store.stats(
+        tenant_id=payload.project.tenant_id,
+        project_id=payload.project.project_id,
+    )
+    return ProjectKnowledgeIndexStatusResponse(
+        project=registration.project,
+        index_stats=_knowledge_index_stats_dict(stats),
+    )
+
+
+@router.post(
+    "/projects/knowledge-index/sync",
+    response_model=ProjectKnowledgeIndexSyncResponse,
+    tags=["projects"],
+)
+def sync_project_knowledge_index(
+    request: Request,
+    payload: ProjectKnowledgeIndexSyncRequest,
+    sync_service: KnowledgeIndexSyncService | None = Depends(get_knowledge_index_sync),
+    registrations: tuple[LocalProjectRegistration, ...] = Depends(get_local_registrations),
+) -> ProjectKnowledgeIndexSyncResponse:
+    registration = _match_registration(payload.project, registrations)
+    if registration is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="project is not registered")
+    if registration.access_scope not in payload.permissions:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="missing project access scope for knowledge index sync",
+        )
+    if sync_service is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="knowledge index is not configured",
+        )
+    evidence_index = request.app.state.evidence_index
+    evidence = tuple(
+        item
+        for item in evidence_index.all(include_revoked=True)
+        if item.project.tenant_id == payload.project.tenant_id
+        and item.project.project_id == payload.project.project_id
+    )
+    result = sync_service.sync(
+        evidence,
+        mode=payload.mode,
+        dry_run=payload.dry_run,
+        project=registration.project,
+    )
+    embedding = result.build.embeddings
+    return ProjectKnowledgeIndexSyncResponse(
+        project=registration.project,
+        mode=result.mode,
+        dry_run=result.dry_run,
+        batches=result.batches,
+        input_records=result.input_records,
+        documents_upserted=result.build.documents_upserted,
+        chunks_written=result.build.chunks_written,
+        chunks_deactivated=result.build.chunks_deactivated,
+        deactivated_documents=result.deactivated_documents,
+        embedding_completed=embedding.completed if embedding else 0,
+        embedding_failed=embedding.failed if embedding else 0,
+        embedding_cache_hits=embedding.cache_hits if embedding else 0,
+        index_stats=_knowledge_index_stats_dict(result.stats),
     )
 
 
@@ -818,6 +922,19 @@ def _source_evidence_refs(source: object, evidence: tuple[object, ...]) -> tuple
         if matches_source and matches_revision:
             refs.append(str(item_id))
     return tuple(refs)
+
+
+def _knowledge_index_stats_dict(stats) -> dict[str, int]:
+    return {
+        "documents": stats.documents,
+        "active_documents": stats.active_documents,
+        "chunks": stats.chunks,
+        "active_chunks": stats.active_chunks,
+        "embeddings": stats.embeddings,
+        "ready_embeddings": stats.ready_embeddings,
+        "pending_jobs": stats.pending_jobs,
+        "failed_jobs": stats.failed_jobs,
+    }
 
 
 @router.post(

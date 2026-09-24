@@ -1,0 +1,109 @@
+{
+  "schema_version": "context-compression-evaluation.v1",
+  "status": "insufficient_data",
+  "dataset_size": 2,
+  "minimum_release_cases": 50,
+  "probe_count": 7,
+  "passed_probe_count": 7,
+  "probe_pass_rate": 1.0,
+  "token_reduction_ratio": 0.649068,
+  "by_kind": {
+    "recall": {
+      "passed": 2,
+      "total": 2
+    },
+    "artifact": {
+      "passed": 1,
+      "total": 1
+    },
+    "decision": {
+      "passed": 1,
+      "total": 1
+    },
+    "continuation": {
+      "passed": 1,
+      "total": 1
+    },
+    "citation": {
+      "passed": 1,
+      "total": 1
+    },
+    "negative": {
+      "passed": 1,
+      "total": 1
+    }
+  },
+  "cases": [
+    {
+      "case_id": "incident-summary-retention",
+      "original_tokens": 182,
+      "final_tokens": 82,
+      "token_reduction_ratio": 0.549451,
+      "action": "prune",
+      "hard_blocked": false,
+      "passed": true,
+      "probes": [
+        {
+          "probe_id": "error-code",
+          "kind": "recall",
+          "passed": true,
+          "missing": [],
+          "forbidden_present": []
+        },
+        {
+          "probe_id": "artifact",
+          "kind": "artifact",
+          "passed": true,
+          "missing": [],
+          "forbidden_present": []
+        },
+        {
+          "probe_id": "decision",
+          "kind": "decision",
+          "passed": true,
+          "missing": [],
+          "forbidden_present": []
+        },
+        {
+          "probe_id": "next-step",
+          "kind": "continuation",
+          "passed": true,
+          "missing": [],
+          "forbidden_present": []
+        },
+        {
+          "probe_id": "citation",
+          "kind": "citation",
+          "passed": true,
+          "missing": [],
+          "forbidden_present": []
+        }
+      ]
+    },
+    {
+      "case_id": "negative-unknown-retention",
+      "original_tokens": 140,
+      "final_tokens": 31,
+      "token_reduction_ratio": 0.778571,
+      "action": "prune",
+      "hard_blocked": false,
+      "passed": true,
+      "probes": [
+        {
+          "probe_id": "known-error",
+          "kind": "recall",
+          "passed": true,
+          "missing": [],
+          "forbidden_present": []
+        },
+        {
+          "probe_id": "unknown-version",
+          "kind": "negative",
+          "passed": true,
+          "missing": [],
+          "forbidden_present": []
+        }
+      ]
+    }
+  ]
+}

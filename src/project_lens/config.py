@@ -50,6 +50,7 @@ class Settings(BaseSettings):
     knowledge_embedding_model: str | None = None
     knowledge_embedding_version: str | None = None
     knowledge_chunker_version: str = "v1"
+    knowledge_index_version: str = "v1"
     knowledge_max_candidates: int = 200
     knowledge_max_results: int = 8
     knowledge_vector_timeout_seconds: float = 10.0
@@ -109,6 +110,19 @@ class Settings(BaseSettings):
     # OpenAI-compatible endpoint configured for ProjectLens.
     feishu_hermes_base_url: str | None = None
     feishu_hermes_api_key: str | None = None
+    # ProjectLens owns the business context budget; Hermes remains the model
+    # and tool-loop executor. Keep this budget below provider maximums.
+    context_governor_enabled: bool = True
+    context_model_limit_tokens: int = 128_000
+    context_soft_limit_ratio: float = 0.45
+    context_summarize_ratio: float = 0.60
+    context_prune_ratio: float = 0.75
+    context_rotate_ratio: float = 0.85
+    context_hard_limit_ratio: float = 0.95
+    context_output_reserve_tokens: int = 12_000
+    context_tool_schema_tokens: int = 2_500
+    context_provider_overhead_tokens: int = 1_000
+    context_max_recovery_retry: int = 1
     # Optional directory of ProjectSpace JSON files (relative to repo root).
     project_spaces_dir: str = "config/projects"
     # Connector freshness window: answers may warn when last_success_at is older.

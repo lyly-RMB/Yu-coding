@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from project_lens.domain.conversation import ConversationSession
+from project_lens.domain.session_state import HandoffSummary, render_session_state_markdown
 from project_lens.domain.memory import ProjectMemory
 from project_lens.context.memory_retrieval import (
     MemorySummaryEntry,
@@ -26,6 +27,7 @@ def build_hermes_project_context(
     memories: tuple[ProjectMemory, ...] = (),
     memory_summary: tuple[MemorySummaryEntry, ...] = (),
     runtime_access: dict[str, object] | None = None,
+    handoff: HandoffSummary | None = None,
 ) -> HermesProjectContext:
     """Render bounded session/project memory already filtered by the caller."""
 
@@ -59,6 +61,18 @@ def build_hermes_project_context(
             lines.append("session_next_actions=" + "; ".join(summary.next_actions[:12]))
         if summary.last_assistant_summary:
             lines.append("last_assistant_summary=" + summary.last_assistant_summary)
+        if session.session_state is not None:
+            state = session.session_state
+            lines.extend(
+                (
+                    f"session_summary_version={state.summary_version}",
+                    f"session_last_compressed_turn_id={state.last_compressed_turn_id or ''}",
+                    f"session_last_handoff_id={state.last_handoff_id or ''}",
+                    f"session_rotation_pending={state.rotation_pending}",
+                    "structured_session_state:",
+                    render_session_state_markdown(state),
+                )
+            )
         for index, turn in enumerate(session.recent_turns[-6:], start=1):
             lines.append(f"recent_turn[{index}] user_id={turn.user_id} text={turn.text}")
         if session.task_scratchpad:
@@ -68,6 +82,8 @@ def build_hermes_project_context(
                 for key in ("phase", "plan", "files_read", "test_results")
                 if key in scratch
             }))
+    if handoff is not None:
+        lines.extend(("handoff_summary:", handoff.markdown))
     if memory_summary:
         lines.append(render_memory_summary(memory_summary))
     elif memories:
@@ -93,6 +109,25 @@ def build_hermes_project_context(
             "memory_summary_topics": len(memory_summary),
             "runtime_access_keys": sorted(runtime_access or {}),
             "renderer_version": "hermes_context.v1",
+            "summary_version": (
+                session.session_state.summary_version
+                if session is not None and session.session_state is not None
+                else 0
+            ),
+            "last_compressed_turn_id": (
+                session.session_state.last_compressed_turn_id
+                if session is not None and session.session_state is not None
+                else None
+            ),
+            "last_handoff_id": (
+                session.session_state.last_handoff_id
+                if session is not None and session.session_state is not None
+                else None
+            ),
+            "handoff_id": handoff.handoff_id if handoff is not None else None,
+            "handoff_summary_version": (
+                handoff.summary_version if handoff is not None else None
+            ),
         },
         renderer_version="hermes_context.v1",
     )

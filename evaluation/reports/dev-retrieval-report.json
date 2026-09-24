@@ -28,8 +28,8 @@
     },
     "decision": "insufficient_data"
   },
-  "generated_at": "2026-09-18T06:25:04.451428+00:00",
-  "git_revision": "142143a60e6b62e7dc0374717b58f69b62b0b041",
+  "generated_at": "2026-09-20T03:22:14.816517+00:00",
+  "git_revision": "8a453758d3052a0d4bc4dd2054a56e9f4222f28b",
   "index_snapshot": null,
   "metrics": {
     "comparison": {
@@ -48,8 +48,8 @@
       "irrelevant_rate": 0.8916666666666667,
       "mrr": 0.695238,
       "ndcg_at_5": 0.678256,
-      "p50_latency_ms": 0.7337,
-      "p95_latency_ms": 0.9173,
+      "p50_latency_ms": 0.7072,
+      "p95_latency_ms": 1.2778,
       "recall_at_1": 0.583333,
       "recall_at_10": 1.0,
       "recall_at_5": 0.875,
@@ -69,8 +69,8 @@
       "irrelevant_rate": 0.8617021276595744,
       "mrr": 0.875,
       "ndcg_at_5": 0.884429,
-      "p50_latency_ms": 0.6764,
-      "p95_latency_ms": 0.7652,
+      "p50_latency_ms": 0.6792,
+      "p95_latency_ms": 0.9105,
       "recall_at_1": 0.875,
       "recall_at_10": 1.0,
       "recall_at_5": 1.0,
@@ -90,8 +90,8 @@
       "irrelevant_rate": 0.9166666666666666,
       "mrr": 0.377976,
       "ndcg_at_5": 0.364125,
-      "p50_latency_ms": 0.7237,
-      "p95_latency_ms": 0.917,
+      "p50_latency_ms": 0.7524,
+      "p95_latency_ms": 0.8836,
       "recall_at_1": 0.291667,
       "recall_at_10": 0.791667,
       "recall_at_5": 0.583333,
@@ -116,7 +116,7 @@
           "expected_conflict": false,
           "forbidden_object_ids": [],
           "id": "traceback-location",
-          "latency_ms": 0.9173,
+          "latency_ms": 0.8185,
           "retrieval_trace": {
             "authorized_candidate_count": 11,
             "channel_counts": {
@@ -156,8 +156,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "ca51904a-0503-454f-9430-c3cf38f6274b",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "f964b4f3-7bd3-428d-b4ab-8c877aa1fe40",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 1,
               "relevant": true,
@@ -186,8 +186,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "56853a98-db1f-477e-a306-0d7793f27318",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "9ed3fb95-b65f-422a-b8cd-b6fcbab9c93a",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 2,
               "relevant": false,
@@ -216,8 +216,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "8a050499-21c7-4a3d-8613-5d518393d8d3",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "be1cc4ce-7f43-4f61-b882-1f68663c1928",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 3,
               "relevant": false,
@@ -246,8 +246,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "15de8c23-70b8-42ca-bfb6-6e67d615c542",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "412eb0bb-4214-4350-a742-7f09e5341d9f",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 4,
               "relevant": false,
@@ -276,8 +276,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "73c9a8d4-43d0-4c68-8482-a39b628c3cc6",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "713fdac7-a952-4652-9725-b29ae1bcff68",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 5,
               "relevant": false,
@@ -306,8 +306,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "860b1ea5-39f4-41d9-bc9d-ea4f0af0bdc8",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "746782a7-d9fa-47c8-9b32-9862a2a0b396",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 6,
               "relevant": false,
@@ -333,8 +333,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "237778fe-928b-493c-bc29-49f278796d2b",
-              "observed_at": "2026-09-18T06:25:04.441915+00:00",
+              "object_id": "4c813d50-46e5-48b8-9d37-fd648198ee9d",
+              "observed_at": "2026-09-20T03:22:14.800943+00:00",
               "project_id": "payment",
               "rank": 7,
               "relevant": false,
@@ -360,7 +360,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "7181597f-3f9a-4a90-aa11-152ac70b06c6",
+              "object_id": "010fa019-8e3b-499b-aa84-8ded5b6074eb",
               "observed_at": "2026-07-20T10:15:00+00:00",
               "project_id": "payment",
               "rank": 8,
@@ -387,7 +387,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "b0c197df-737b-4fd7-81a9-2d062ad6f4b2",
+              "object_id": "6915da53-1752-45f1-a9d2-54ff211a91ab",
               "observed_at": "2026-07-20T14:00:00+00:00",
               "project_id": "payment",
               "rank": 9,
@@ -414,8 +414,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "d6b98b89-de64-48be-971d-d28227c744ee",
-              "observed_at": "2026-09-18T06:25:04.441915+00:00",
+              "object_id": "440bd6bd-0ff1-41de-a3d2-46a1fca0b6c6",
+              "observed_at": "2026-09-20T03:22:14.800943+00:00",
               "project_id": "payment",
               "rank": 10,
               "relevant": false,
@@ -435,7 +435,7 @@
           "expected_conflict": false,
           "forbidden_object_ids": [],
           "id": "optional-coupon-rule",
-          "latency_ms": 0.7196,
+          "latency_ms": 0.7072,
           "retrieval_trace": {
             "authorized_candidate_count": 11,
             "channel_counts": {
@@ -472,8 +472,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "237778fe-928b-493c-bc29-49f278796d2b",
-              "observed_at": "2026-09-18T06:25:04.441915+00:00",
+              "object_id": "4c813d50-46e5-48b8-9d37-fd648198ee9d",
+              "observed_at": "2026-09-20T03:22:14.800943+00:00",
               "project_id": "payment",
               "rank": 1,
               "relevant": true,
@@ -499,7 +499,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "7181597f-3f9a-4a90-aa11-152ac70b06c6",
+              "object_id": "010fa019-8e3b-499b-aa84-8ded5b6074eb",
               "observed_at": "2026-07-20T10:15:00+00:00",
               "project_id": "payment",
               "rank": 2,
@@ -526,8 +526,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "56853a98-db1f-477e-a306-0d7793f27318",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "9ed3fb95-b65f-422a-b8cd-b6fcbab9c93a",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 3,
               "relevant": false,
@@ -553,8 +553,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "ca51904a-0503-454f-9430-c3cf38f6274b",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "f964b4f3-7bd3-428d-b4ab-8c877aa1fe40",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 4,
               "relevant": false,
@@ -580,8 +580,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "8a050499-21c7-4a3d-8613-5d518393d8d3",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "be1cc4ce-7f43-4f61-b882-1f68663c1928",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 5,
               "relevant": false,
@@ -607,8 +607,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "d6b98b89-de64-48be-971d-d28227c744ee",
-              "observed_at": "2026-09-18T06:25:04.441915+00:00",
+              "object_id": "440bd6bd-0ff1-41de-a3d2-46a1fca0b6c6",
+              "observed_at": "2026-09-20T03:22:14.800943+00:00",
               "project_id": "payment",
               "rank": 6,
               "relevant": false,
@@ -634,8 +634,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "860b1ea5-39f4-41d9-bc9d-ea4f0af0bdc8",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "746782a7-d9fa-47c8-9b32-9862a2a0b396",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 7,
               "relevant": false,
@@ -661,8 +661,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "15de8c23-70b8-42ca-bfb6-6e67d615c542",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "412eb0bb-4214-4350-a742-7f09e5341d9f",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 8,
               "relevant": false,
@@ -688,8 +688,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "73c9a8d4-43d0-4c68-8482-a39b628c3cc6",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "713fdac7-a952-4652-9725-b29ae1bcff68",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 9,
               "relevant": false,
@@ -712,7 +712,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "b0c197df-737b-4fd7-81a9-2d062ad6f4b2",
+              "object_id": "6915da53-1752-45f1-a9d2-54ff211a91ab",
               "observed_at": "2026-07-20T14:00:00+00:00",
               "project_id": "payment",
               "rank": 10,
@@ -733,7 +733,7 @@
           "expected_conflict": false,
           "forbidden_object_ids": [],
           "id": "checkout-runbook",
-          "latency_ms": 0.6741,
+          "latency_ms": 0.6883,
           "retrieval_trace": {
             "authorized_candidate_count": 11,
             "channel_counts": {
@@ -770,7 +770,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "7181597f-3f9a-4a90-aa11-152ac70b06c6",
+              "object_id": "010fa019-8e3b-499b-aa84-8ded5b6074eb",
               "observed_at": "2026-07-20T10:15:00+00:00",
               "project_id": "payment",
               "rank": 1,
@@ -797,7 +797,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "b0c197df-737b-4fd7-81a9-2d062ad6f4b2",
+              "object_id": "6915da53-1752-45f1-a9d2-54ff211a91ab",
               "observed_at": "2026-07-20T14:00:00+00:00",
               "project_id": "payment",
               "rank": 2,
@@ -824,7 +824,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "f51ef6ff-2b61-43a5-8f95-9de269bd050e",
+              "object_id": "8328ff8c-fe80-4391-a47f-fa18fa4d475b",
               "observed_at": "2026-07-20T12:30:00+00:00",
               "project_id": "payment",
               "rank": 3,
@@ -851,8 +851,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "237778fe-928b-493c-bc29-49f278796d2b",
-              "observed_at": "2026-09-18T06:25:04.441915+00:00",
+              "object_id": "4c813d50-46e5-48b8-9d37-fd648198ee9d",
+              "observed_at": "2026-09-20T03:22:14.800943+00:00",
               "project_id": "payment",
               "rank": 4,
               "relevant": false,
@@ -878,8 +878,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "d6b98b89-de64-48be-971d-d28227c744ee",
-              "observed_at": "2026-09-18T06:25:04.441915+00:00",
+              "object_id": "440bd6bd-0ff1-41de-a3d2-46a1fca0b6c6",
+              "observed_at": "2026-09-20T03:22:14.800943+00:00",
               "project_id": "payment",
               "rank": 5,
               "relevant": true,
@@ -902,8 +902,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "56853a98-db1f-477e-a306-0d7793f27318",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "9ed3fb95-b65f-422a-b8cd-b6fcbab9c93a",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 6,
               "relevant": false,
@@ -926,8 +926,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "8a050499-21c7-4a3d-8613-5d518393d8d3",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "be1cc4ce-7f43-4f61-b882-1f68663c1928",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 7,
               "relevant": false,
@@ -950,8 +950,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "ca51904a-0503-454f-9430-c3cf38f6274b",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "f964b4f3-7bd3-428d-b4ab-8c877aa1fe40",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 8,
               "relevant": false,
@@ -974,8 +974,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "15de8c23-70b8-42ca-bfb6-6e67d615c542",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "412eb0bb-4214-4350-a742-7f09e5341d9f",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 9,
               "relevant": false,
@@ -998,8 +998,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "73c9a8d4-43d0-4c68-8482-a39b628c3cc6",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "713fdac7-a952-4652-9725-b29ae1bcff68",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 10,
               "relevant": false,
@@ -1019,7 +1019,7 @@
           "expected_conflict": false,
           "forbidden_object_ids": [],
           "id": "historical-incident",
-          "latency_ms": 1.0692,
+          "latency_ms": 1.6444,
           "retrieval_trace": {
             "authorized_candidate_count": 11,
             "channel_counts": {
@@ -1056,7 +1056,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "7181597f-3f9a-4a90-aa11-152ac70b06c6",
+              "object_id": "010fa019-8e3b-499b-aa84-8ded5b6074eb",
               "observed_at": "2026-07-20T10:15:00+00:00",
               "project_id": "payment",
               "rank": 1,
@@ -1083,8 +1083,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "237778fe-928b-493c-bc29-49f278796d2b",
-              "observed_at": "2026-09-18T06:25:04.441915+00:00",
+              "object_id": "4c813d50-46e5-48b8-9d37-fd648198ee9d",
+              "observed_at": "2026-09-20T03:22:14.800943+00:00",
               "project_id": "payment",
               "rank": 2,
               "relevant": false,
@@ -1110,7 +1110,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "f51ef6ff-2b61-43a5-8f95-9de269bd050e",
+              "object_id": "8328ff8c-fe80-4391-a47f-fa18fa4d475b",
               "observed_at": "2026-07-20T12:30:00+00:00",
               "project_id": "payment",
               "rank": 3,
@@ -1137,8 +1137,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "ca51904a-0503-454f-9430-c3cf38f6274b",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "f964b4f3-7bd3-428d-b4ab-8c877aa1fe40",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 4,
               "relevant": false,
@@ -1161,7 +1161,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "b0c197df-737b-4fd7-81a9-2d062ad6f4b2",
+              "object_id": "6915da53-1752-45f1-a9d2-54ff211a91ab",
               "observed_at": "2026-07-20T14:00:00+00:00",
               "project_id": "payment",
               "rank": 5,
@@ -1185,8 +1185,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "56853a98-db1f-477e-a306-0d7793f27318",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "9ed3fb95-b65f-422a-b8cd-b6fcbab9c93a",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 6,
               "relevant": false,
@@ -1209,8 +1209,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "8a050499-21c7-4a3d-8613-5d518393d8d3",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "be1cc4ce-7f43-4f61-b882-1f68663c1928",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 7,
               "relevant": false,
@@ -1233,8 +1233,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "15de8c23-70b8-42ca-bfb6-6e67d615c542",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "412eb0bb-4214-4350-a742-7f09e5341d9f",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 8,
               "relevant": false,
@@ -1257,8 +1257,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "73c9a8d4-43d0-4c68-8482-a39b628c3cc6",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "713fdac7-a952-4652-9725-b29ae1bcff68",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 9,
               "relevant": false,
@@ -1281,8 +1281,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "860b1ea5-39f4-41d9-bc9d-ea4f0af0bdc8",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "746782a7-d9fa-47c8-9b32-9862a2a0b396",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 10,
               "relevant": false,
@@ -1302,7 +1302,7 @@
           "expected_conflict": false,
           "forbidden_object_ids": [],
           "id": "null-guard-resolution",
-          "latency_ms": 0.7337,
+          "latency_ms": 0.6844,
           "retrieval_trace": {
             "authorized_candidate_count": 11,
             "channel_counts": {
@@ -1339,7 +1339,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "7181597f-3f9a-4a90-aa11-152ac70b06c6",
+              "object_id": "010fa019-8e3b-499b-aa84-8ded5b6074eb",
               "observed_at": "2026-07-20T10:15:00+00:00",
               "project_id": "payment",
               "rank": 1,
@@ -1366,7 +1366,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "f51ef6ff-2b61-43a5-8f95-9de269bd050e",
+              "object_id": "8328ff8c-fe80-4391-a47f-fa18fa4d475b",
               "observed_at": "2026-07-20T12:30:00+00:00",
               "project_id": "payment",
               "rank": 2,
@@ -1393,7 +1393,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "b0c197df-737b-4fd7-81a9-2d062ad6f4b2",
+              "object_id": "6915da53-1752-45f1-a9d2-54ff211a91ab",
               "observed_at": "2026-07-20T14:00:00+00:00",
               "project_id": "payment",
               "rank": 3,
@@ -1420,8 +1420,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "237778fe-928b-493c-bc29-49f278796d2b",
-              "observed_at": "2026-09-18T06:25:04.441915+00:00",
+              "object_id": "4c813d50-46e5-48b8-9d37-fd648198ee9d",
+              "observed_at": "2026-09-20T03:22:14.800943+00:00",
               "project_id": "payment",
               "rank": 4,
               "relevant": false,
@@ -1447,8 +1447,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "56853a98-db1f-477e-a306-0d7793f27318",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "9ed3fb95-b65f-422a-b8cd-b6fcbab9c93a",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 5,
               "relevant": false,
@@ -1474,8 +1474,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "8a050499-21c7-4a3d-8613-5d518393d8d3",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "be1cc4ce-7f43-4f61-b882-1f68663c1928",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 6,
               "relevant": false,
@@ -1501,8 +1501,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "d6b98b89-de64-48be-971d-d28227c744ee",
-              "observed_at": "2026-09-18T06:25:04.441915+00:00",
+              "object_id": "440bd6bd-0ff1-41de-a3d2-46a1fca0b6c6",
+              "observed_at": "2026-09-20T03:22:14.800943+00:00",
               "project_id": "payment",
               "rank": 7,
               "relevant": true,
@@ -1528,8 +1528,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "ca51904a-0503-454f-9430-c3cf38f6274b",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "f964b4f3-7bd3-428d-b4ab-8c877aa1fe40",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 8,
               "relevant": false,
@@ -1555,8 +1555,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "15de8c23-70b8-42ca-bfb6-6e67d615c542",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "412eb0bb-4214-4350-a742-7f09e5341d9f",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 9,
               "relevant": false,
@@ -1582,8 +1582,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "860b1ea5-39f4-41d9-bc9d-ea4f0af0bdc8",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "746782a7-d9fa-47c8-9b32-9862a2a0b396",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 10,
               "relevant": false,
@@ -1603,7 +1603,7 @@
           "expected_conflict": false,
           "forbidden_object_ids": [],
           "id": "entry-point",
-          "latency_ms": 0.7569,
+          "latency_ms": 0.6616,
           "retrieval_trace": {
             "authorized_candidate_count": 11,
             "channel_counts": {
@@ -1640,8 +1640,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "237778fe-928b-493c-bc29-49f278796d2b",
-              "observed_at": "2026-09-18T06:25:04.441915+00:00",
+              "object_id": "4c813d50-46e5-48b8-9d37-fd648198ee9d",
+              "observed_at": "2026-09-20T03:22:14.800943+00:00",
               "project_id": "payment",
               "rank": 1,
               "relevant": true,
@@ -1667,7 +1667,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "7181597f-3f9a-4a90-aa11-152ac70b06c6",
+              "object_id": "010fa019-8e3b-499b-aa84-8ded5b6074eb",
               "observed_at": "2026-07-20T10:15:00+00:00",
               "project_id": "payment",
               "rank": 2,
@@ -1694,8 +1694,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "56853a98-db1f-477e-a306-0d7793f27318",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "9ed3fb95-b65f-422a-b8cd-b6fcbab9c93a",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 3,
               "relevant": false,
@@ -1721,8 +1721,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "ca51904a-0503-454f-9430-c3cf38f6274b",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "f964b4f3-7bd3-428d-b4ab-8c877aa1fe40",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 4,
               "relevant": true,
@@ -1748,7 +1748,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "f51ef6ff-2b61-43a5-8f95-9de269bd050e",
+              "object_id": "8328ff8c-fe80-4391-a47f-fa18fa4d475b",
               "observed_at": "2026-07-20T12:30:00+00:00",
               "project_id": "payment",
               "rank": 5,
@@ -1775,8 +1775,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "8a050499-21c7-4a3d-8613-5d518393d8d3",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "be1cc4ce-7f43-4f61-b882-1f68663c1928",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 6,
               "relevant": false,
@@ -1802,8 +1802,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "d6b98b89-de64-48be-971d-d28227c744ee",
-              "observed_at": "2026-09-18T06:25:04.441915+00:00",
+              "object_id": "440bd6bd-0ff1-41de-a3d2-46a1fca0b6c6",
+              "observed_at": "2026-09-20T03:22:14.800943+00:00",
               "project_id": "payment",
               "rank": 7,
               "relevant": false,
@@ -1829,8 +1829,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "73c9a8d4-43d0-4c68-8482-a39b628c3cc6",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "713fdac7-a952-4652-9725-b29ae1bcff68",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 8,
               "relevant": false,
@@ -1856,8 +1856,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "15de8c23-70b8-42ca-bfb6-6e67d615c542",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "412eb0bb-4214-4350-a742-7f09e5341d9f",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 9,
               "relevant": false,
@@ -1883,8 +1883,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "860b1ea5-39f4-41d9-bc9d-ea4f0af0bdc8",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "746782a7-d9fa-47c8-9b32-9862a2a0b396",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 10,
               "relevant": false,
@@ -1904,7 +1904,7 @@
           "expected_conflict": false,
           "forbidden_object_ids": [],
           "id": "business-impact",
-          "latency_ms": 0.6537,
+          "latency_ms": 0.9835,
           "retrieval_trace": {
             "authorized_candidate_count": 11,
             "channel_counts": {
@@ -1941,8 +1941,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "237778fe-928b-493c-bc29-49f278796d2b",
-              "observed_at": "2026-09-18T06:25:04.441915+00:00",
+              "object_id": "4c813d50-46e5-48b8-9d37-fd648198ee9d",
+              "observed_at": "2026-09-20T03:22:14.800943+00:00",
               "project_id": "payment",
               "rank": 1,
               "relevant": true,
@@ -1968,8 +1968,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "56853a98-db1f-477e-a306-0d7793f27318",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "9ed3fb95-b65f-422a-b8cd-b6fcbab9c93a",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 2,
               "relevant": false,
@@ -1995,8 +1995,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "ca51904a-0503-454f-9430-c3cf38f6274b",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "f964b4f3-7bd3-428d-b4ab-8c877aa1fe40",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 3,
               "relevant": false,
@@ -2022,7 +2022,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "7181597f-3f9a-4a90-aa11-152ac70b06c6",
+              "object_id": "010fa019-8e3b-499b-aa84-8ded5b6074eb",
               "observed_at": "2026-07-20T10:15:00+00:00",
               "project_id": "payment",
               "rank": 4,
@@ -2049,8 +2049,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "8a050499-21c7-4a3d-8613-5d518393d8d3",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "be1cc4ce-7f43-4f61-b882-1f68663c1928",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 5,
               "relevant": false,
@@ -2076,8 +2076,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "860b1ea5-39f4-41d9-bc9d-ea4f0af0bdc8",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "746782a7-d9fa-47c8-9b32-9862a2a0b396",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 6,
               "relevant": false,
@@ -2103,8 +2103,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "73c9a8d4-43d0-4c68-8482-a39b628c3cc6",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "713fdac7-a952-4652-9725-b29ae1bcff68",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 7,
               "relevant": false,
@@ -2130,8 +2130,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "15de8c23-70b8-42ca-bfb6-6e67d615c542",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "412eb0bb-4214-4350-a742-7f09e5341d9f",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 8,
               "relevant": false,
@@ -2157,8 +2157,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "d6b98b89-de64-48be-971d-d28227c744ee",
-              "observed_at": "2026-09-18T06:25:04.441915+00:00",
+              "object_id": "440bd6bd-0ff1-41de-a3d2-46a1fca0b6c6",
+              "observed_at": "2026-09-20T03:22:14.800943+00:00",
               "project_id": "payment",
               "rank": 9,
               "relevant": false,
@@ -2181,7 +2181,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "b0c197df-737b-4fd7-81a9-2d062ad6f4b2",
+              "object_id": "6915da53-1752-45f1-a9d2-54ff211a91ab",
               "observed_at": "2026-07-20T14:00:00+00:00",
               "project_id": "payment",
               "rank": 10,
@@ -2202,7 +2202,7 @@
           "expected_conflict": false,
           "forbidden_object_ids": [],
           "id": "release-check",
-          "latency_ms": 0.6446,
+          "latency_ms": 0.8869,
           "retrieval_trace": {
             "authorized_candidate_count": 11,
             "channel_counts": {
@@ -2239,7 +2239,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "b0c197df-737b-4fd7-81a9-2d062ad6f4b2",
+              "object_id": "6915da53-1752-45f1-a9d2-54ff211a91ab",
               "observed_at": "2026-07-20T14:00:00+00:00",
               "project_id": "payment",
               "rank": 1,
@@ -2266,8 +2266,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "237778fe-928b-493c-bc29-49f278796d2b",
-              "observed_at": "2026-09-18T06:25:04.441915+00:00",
+              "object_id": "4c813d50-46e5-48b8-9d37-fd648198ee9d",
+              "observed_at": "2026-09-20T03:22:14.800943+00:00",
               "project_id": "payment",
               "rank": 2,
               "relevant": false,
@@ -2293,7 +2293,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "7181597f-3f9a-4a90-aa11-152ac70b06c6",
+              "object_id": "010fa019-8e3b-499b-aa84-8ded5b6074eb",
               "observed_at": "2026-07-20T10:15:00+00:00",
               "project_id": "payment",
               "rank": 3,
@@ -2320,7 +2320,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "f51ef6ff-2b61-43a5-8f95-9de269bd050e",
+              "object_id": "8328ff8c-fe80-4391-a47f-fa18fa4d475b",
               "observed_at": "2026-07-20T12:30:00+00:00",
               "project_id": "payment",
               "rank": 4,
@@ -2347,8 +2347,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "ca51904a-0503-454f-9430-c3cf38f6274b",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "f964b4f3-7bd3-428d-b4ab-8c877aa1fe40",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 5,
               "relevant": false,
@@ -2374,8 +2374,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "56853a98-db1f-477e-a306-0d7793f27318",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "9ed3fb95-b65f-422a-b8cd-b6fcbab9c93a",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 6,
               "relevant": false,
@@ -2401,8 +2401,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "d6b98b89-de64-48be-971d-d28227c744ee",
-              "observed_at": "2026-09-18T06:25:04.441915+00:00",
+              "object_id": "440bd6bd-0ff1-41de-a3d2-46a1fca0b6c6",
+              "observed_at": "2026-09-20T03:22:14.800943+00:00",
               "project_id": "payment",
               "rank": 7,
               "relevant": true,
@@ -2425,8 +2425,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "8a050499-21c7-4a3d-8613-5d518393d8d3",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "be1cc4ce-7f43-4f61-b882-1f68663c1928",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 8,
               "relevant": false,
@@ -2449,8 +2449,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "15de8c23-70b8-42ca-bfb6-6e67d615c542",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "412eb0bb-4214-4350-a742-7f09e5341d9f",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 9,
               "relevant": false,
@@ -2473,8 +2473,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "73c9a8d4-43d0-4c68-8482-a39b628c3cc6",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "713fdac7-a952-4652-9725-b29ae1bcff68",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 10,
               "relevant": false,
@@ -2494,7 +2494,7 @@
           "expected_conflict": false,
           "forbidden_object_ids": [],
           "id": "code-expression",
-          "latency_ms": 0.6388,
+          "latency_ms": 0.6625,
           "retrieval_trace": {
             "authorized_candidate_count": 11,
             "channel_counts": {
@@ -2531,8 +2531,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "237778fe-928b-493c-bc29-49f278796d2b",
-              "observed_at": "2026-09-18T06:25:04.441915+00:00",
+              "object_id": "4c813d50-46e5-48b8-9d37-fd648198ee9d",
+              "observed_at": "2026-09-20T03:22:14.800943+00:00",
               "project_id": "payment",
               "rank": 1,
               "relevant": false,
@@ -2558,8 +2558,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "ca51904a-0503-454f-9430-c3cf38f6274b",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "f964b4f3-7bd3-428d-b4ab-8c877aa1fe40",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 2,
               "relevant": true,
@@ -2585,7 +2585,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "b0c197df-737b-4fd7-81a9-2d062ad6f4b2",
+              "object_id": "6915da53-1752-45f1-a9d2-54ff211a91ab",
               "observed_at": "2026-07-20T14:00:00+00:00",
               "project_id": "payment",
               "rank": 3,
@@ -2612,8 +2612,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "56853a98-db1f-477e-a306-0d7793f27318",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "9ed3fb95-b65f-422a-b8cd-b6fcbab9c93a",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 4,
               "relevant": false,
@@ -2639,7 +2639,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "7181597f-3f9a-4a90-aa11-152ac70b06c6",
+              "object_id": "010fa019-8e3b-499b-aa84-8ded5b6074eb",
               "observed_at": "2026-07-20T10:15:00+00:00",
               "project_id": "payment",
               "rank": 5,
@@ -2666,8 +2666,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "73c9a8d4-43d0-4c68-8482-a39b628c3cc6",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "713fdac7-a952-4652-9725-b29ae1bcff68",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 6,
               "relevant": false,
@@ -2693,8 +2693,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "15de8c23-70b8-42ca-bfb6-6e67d615c542",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "412eb0bb-4214-4350-a742-7f09e5341d9f",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 7,
               "relevant": false,
@@ -2720,7 +2720,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "f51ef6ff-2b61-43a5-8f95-9de269bd050e",
+              "object_id": "8328ff8c-fe80-4391-a47f-fa18fa4d475b",
               "observed_at": "2026-07-20T12:30:00+00:00",
               "project_id": "payment",
               "rank": 8,
@@ -2747,8 +2747,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "8a050499-21c7-4a3d-8613-5d518393d8d3",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "be1cc4ce-7f43-4f61-b882-1f68663c1928",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 9,
               "relevant": false,
@@ -2774,8 +2774,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "d6b98b89-de64-48be-971d-d28227c744ee",
-              "observed_at": "2026-09-18T06:25:04.441915+00:00",
+              "object_id": "440bd6bd-0ff1-41de-a3d2-46a1fca0b6c6",
+              "observed_at": "2026-09-20T03:22:14.800943+00:00",
               "project_id": "payment",
               "rank": 10,
               "relevant": false,
@@ -2795,7 +2795,7 @@
           "expected_conflict": false,
           "forbidden_object_ids": [],
           "id": "incident-impact",
-          "latency_ms": 0.7507,
+          "latency_ms": 0.7046,
           "retrieval_trace": {
             "authorized_candidate_count": 11,
             "channel_counts": {
@@ -2832,7 +2832,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "7181597f-3f9a-4a90-aa11-152ac70b06c6",
+              "object_id": "010fa019-8e3b-499b-aa84-8ded5b6074eb",
               "observed_at": "2026-07-20T10:15:00+00:00",
               "project_id": "payment",
               "rank": 1,
@@ -2859,7 +2859,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "f51ef6ff-2b61-43a5-8f95-9de269bd050e",
+              "object_id": "8328ff8c-fe80-4391-a47f-fa18fa4d475b",
               "observed_at": "2026-07-20T12:30:00+00:00",
               "project_id": "payment",
               "rank": 2,
@@ -2886,7 +2886,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "b0c197df-737b-4fd7-81a9-2d062ad6f4b2",
+              "object_id": "6915da53-1752-45f1-a9d2-54ff211a91ab",
               "observed_at": "2026-07-20T14:00:00+00:00",
               "project_id": "payment",
               "rank": 3,
@@ -2913,8 +2913,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "237778fe-928b-493c-bc29-49f278796d2b",
-              "observed_at": "2026-09-18T06:25:04.441915+00:00",
+              "object_id": "4c813d50-46e5-48b8-9d37-fd648198ee9d",
+              "observed_at": "2026-09-20T03:22:14.800943+00:00",
               "project_id": "payment",
               "rank": 4,
               "relevant": false,
@@ -2940,8 +2940,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "56853a98-db1f-477e-a306-0d7793f27318",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "9ed3fb95-b65f-422a-b8cd-b6fcbab9c93a",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 5,
               "relevant": false,
@@ -2967,8 +2967,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "ca51904a-0503-454f-9430-c3cf38f6274b",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "f964b4f3-7bd3-428d-b4ab-8c877aa1fe40",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 6,
               "relevant": false,
@@ -2994,8 +2994,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "d6b98b89-de64-48be-971d-d28227c744ee",
-              "observed_at": "2026-09-18T06:25:04.441915+00:00",
+              "object_id": "440bd6bd-0ff1-41de-a3d2-46a1fca0b6c6",
+              "observed_at": "2026-09-20T03:22:14.800943+00:00",
               "project_id": "payment",
               "rank": 7,
               "relevant": false,
@@ -3021,8 +3021,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "8a050499-21c7-4a3d-8613-5d518393d8d3",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "be1cc4ce-7f43-4f61-b882-1f68663c1928",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 8,
               "relevant": false,
@@ -3048,8 +3048,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "15de8c23-70b8-42ca-bfb6-6e67d615c542",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "412eb0bb-4214-4350-a742-7f09e5341d9f",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 9,
               "relevant": false,
@@ -3075,8 +3075,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "73c9a8d4-43d0-4c68-8482-a39b628c3cc6",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "713fdac7-a952-4652-9725-b29ae1bcff68",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 10,
               "relevant": false,
@@ -3096,7 +3096,7 @@
           "expected_conflict": false,
           "forbidden_object_ids": [],
           "id": "release-as-of-history",
-          "latency_ms": 0.7981,
+          "latency_ms": 0.6539,
           "retrieval_trace": {
             "authorized_candidate_count": 11,
             "channel_counts": {
@@ -3133,7 +3133,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "7181597f-3f9a-4a90-aa11-152ac70b06c6",
+              "object_id": "010fa019-8e3b-499b-aa84-8ded5b6074eb",
               "observed_at": "2026-07-20T10:15:00+00:00",
               "project_id": "payment",
               "rank": 1,
@@ -3160,7 +3160,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "b0c197df-737b-4fd7-81a9-2d062ad6f4b2",
+              "object_id": "6915da53-1752-45f1-a9d2-54ff211a91ab",
               "observed_at": "2026-07-20T14:00:00+00:00",
               "project_id": "payment",
               "rank": 2,
@@ -3187,7 +3187,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "f51ef6ff-2b61-43a5-8f95-9de269bd050e",
+              "object_id": "8328ff8c-fe80-4391-a47f-fa18fa4d475b",
               "observed_at": "2026-07-20T12:30:00+00:00",
               "project_id": "payment",
               "rank": 3,
@@ -3214,8 +3214,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "237778fe-928b-493c-bc29-49f278796d2b",
-              "observed_at": "2026-09-18T06:25:04.441915+00:00",
+              "object_id": "4c813d50-46e5-48b8-9d37-fd648198ee9d",
+              "observed_at": "2026-09-20T03:22:14.800943+00:00",
               "project_id": "payment",
               "rank": 4,
               "relevant": false,
@@ -3241,8 +3241,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "d6b98b89-de64-48be-971d-d28227c744ee",
-              "observed_at": "2026-09-18T06:25:04.441915+00:00",
+              "object_id": "440bd6bd-0ff1-41de-a3d2-46a1fca0b6c6",
+              "observed_at": "2026-09-20T03:22:14.800943+00:00",
               "project_id": "payment",
               "rank": 5,
               "relevant": false,
@@ -3265,8 +3265,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "56853a98-db1f-477e-a306-0d7793f27318",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "9ed3fb95-b65f-422a-b8cd-b6fcbab9c93a",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 6,
               "relevant": false,
@@ -3289,8 +3289,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "8a050499-21c7-4a3d-8613-5d518393d8d3",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "be1cc4ce-7f43-4f61-b882-1f68663c1928",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 7,
               "relevant": false,
@@ -3313,8 +3313,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "ca51904a-0503-454f-9430-c3cf38f6274b",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "f964b4f3-7bd3-428d-b4ab-8c877aa1fe40",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 8,
               "relevant": false,
@@ -3337,8 +3337,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "15de8c23-70b8-42ca-bfb6-6e67d615c542",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "412eb0bb-4214-4350-a742-7f09e5341d9f",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 9,
               "relevant": false,
@@ -3361,8 +3361,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "73c9a8d4-43d0-4c68-8482-a39b628c3cc6",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "713fdac7-a952-4652-9725-b29ae1bcff68",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 10,
               "relevant": false,
@@ -3382,7 +3382,7 @@
           "expected_conflict": false,
           "forbidden_object_ids": [],
           "id": "unknown-database-policy",
-          "latency_ms": 0.656,
+          "latency_ms": 1.2778,
           "retrieval_trace": {
             "authorized_candidate_count": 11,
             "channel_counts": {
@@ -3419,7 +3419,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "7181597f-3f9a-4a90-aa11-152ac70b06c6",
+              "object_id": "010fa019-8e3b-499b-aa84-8ded5b6074eb",
               "observed_at": "2026-07-20T10:15:00+00:00",
               "project_id": "payment",
               "rank": 1,
@@ -3446,8 +3446,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "237778fe-928b-493c-bc29-49f278796d2b",
-              "observed_at": "2026-09-18T06:25:04.441915+00:00",
+              "object_id": "4c813d50-46e5-48b8-9d37-fd648198ee9d",
+              "observed_at": "2026-09-20T03:22:14.800943+00:00",
               "project_id": "payment",
               "rank": 2,
               "relevant": false,
@@ -3473,7 +3473,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "f51ef6ff-2b61-43a5-8f95-9de269bd050e",
+              "object_id": "8328ff8c-fe80-4391-a47f-fa18fa4d475b",
               "observed_at": "2026-07-20T12:30:00+00:00",
               "project_id": "payment",
               "rank": 3,
@@ -3500,8 +3500,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "ca51904a-0503-454f-9430-c3cf38f6274b",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "f964b4f3-7bd3-428d-b4ab-8c877aa1fe40",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 4,
               "relevant": false,
@@ -3527,8 +3527,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "d6b98b89-de64-48be-971d-d28227c744ee",
-              "observed_at": "2026-09-18T06:25:04.441915+00:00",
+              "object_id": "440bd6bd-0ff1-41de-a3d2-46a1fca0b6c6",
+              "observed_at": "2026-09-20T03:22:14.800943+00:00",
               "project_id": "payment",
               "rank": 5,
               "relevant": false,
@@ -3551,7 +3551,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "b0c197df-737b-4fd7-81a9-2d062ad6f4b2",
+              "object_id": "6915da53-1752-45f1-a9d2-54ff211a91ab",
               "observed_at": "2026-07-20T14:00:00+00:00",
               "project_id": "payment",
               "rank": 6,
@@ -3575,8 +3575,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "56853a98-db1f-477e-a306-0d7793f27318",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "9ed3fb95-b65f-422a-b8cd-b6fcbab9c93a",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 7,
               "relevant": false,
@@ -3599,8 +3599,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "8a050499-21c7-4a3d-8613-5d518393d8d3",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "be1cc4ce-7f43-4f61-b882-1f68663c1928",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 8,
               "relevant": false,
@@ -3623,8 +3623,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "15de8c23-70b8-42ca-bfb6-6e67d615c542",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "412eb0bb-4214-4350-a742-7f09e5341d9f",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 9,
               "relevant": false,
@@ -3647,8 +3647,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "73c9a8d4-43d0-4c68-8482-a39b628c3cc6",
-              "observed_at": "2026-09-18T06:25:04.440916+00:00",
+              "object_id": "713fdac7-a952-4652-9725-b29ae1bcff68",
+              "observed_at": "2026-09-20T03:22:14.799944+00:00",
               "project_id": "payment",
               "rank": 10,
               "relevant": false,
@@ -3677,8 +3677,8 @@
         "irrelevant_rate": 0.8916666666666667,
         "mrr": 0.695238,
         "ndcg_at_5": 0.678256,
-        "p50_latency_ms": 0.7337,
-        "p95_latency_ms": 0.9173,
+        "p50_latency_ms": 0.7072,
+        "p95_latency_ms": 1.2778,
         "recall_at_1": 0.583333,
         "recall_at_10": 1.0,
         "recall_at_5": 0.875,
@@ -3695,7 +3695,7 @@
           "expected_conflict": false,
           "forbidden_object_ids": [],
           "id": "traceback-location",
-          "latency_ms": 1.2998,
+          "latency_ms": 1.3315,
           "retrieval_trace": {
             "authorized_candidate_count": 11,
             "channel_counts": {
@@ -3728,8 +3728,8 @@
                 "exact"
               ],
               "expired": false,
-              "object_id": "69a5ed12-6aeb-4466-bc11-607d4fe03217",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "15c906d8-a2e7-48e6-89b9-094a3b3d2255",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 1,
               "relevant": true,
@@ -3755,8 +3755,8 @@
                 "exact"
               ],
               "expired": false,
-              "object_id": "ff0d942e-6f24-4e4a-8f06-fee7ec3e3f3b",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "c854cb75-38eb-41c7-ab7d-821d034ac366",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 2,
               "relevant": false,
@@ -3782,8 +3782,8 @@
                 "exact"
               ],
               "expired": false,
-              "object_id": "2fb4bdbc-5d31-4fc3-9dfc-016006851dde",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "982cd4ad-a1dc-400a-a8e5-222185028a8f",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 3,
               "relevant": false,
@@ -3809,8 +3809,8 @@
                 "exact"
               ],
               "expired": false,
-              "object_id": "1a026379-e112-4ee1-9c2f-cc09c1dcedc7",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "9602d7ea-d70b-46f8-a2a9-3d9d69693118",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 4,
               "relevant": false,
@@ -3836,8 +3836,8 @@
                 "exact"
               ],
               "expired": false,
-              "object_id": "540098b7-1dcd-4405-a1ca-bf9f8a8a936d",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "185b40c0-69ba-49fa-8fd9-505fa01ff420",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 5,
               "relevant": false,
@@ -3863,8 +3863,8 @@
                 "exact"
               ],
               "expired": false,
-              "object_id": "185d658d-395b-4407-b94b-41b1d109c793",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "997b52f0-694b-4b0d-b215-12e3b560059c",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 6,
               "relevant": false,
@@ -3887,8 +3887,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "12cff535-7345-42cf-90d9-a50b0f6caad6",
-              "observed_at": "2026-09-18T06:25:04.417811+00:00",
+              "object_id": "58add151-a21b-4167-97b1-421e2be0639c",
+              "observed_at": "2026-09-20T03:22:14.768423+00:00",
               "project_id": "payment",
               "rank": 7,
               "relevant": false,
@@ -3911,8 +3911,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "e0c89c74-bc2b-49af-8aa5-89f4c1eb7a04",
-              "observed_at": "2026-09-18T06:25:04.417811+00:00",
+              "object_id": "8298b7c7-9bd1-4610-a18c-f42111bc990a",
+              "observed_at": "2026-09-20T03:22:14.768423+00:00",
               "project_id": "payment",
               "rank": 8,
               "relevant": false,
@@ -3935,7 +3935,7 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "c9f40cef-b6bd-4370-adb1-414ef4d220b8",
+              "object_id": "3c3af35b-5575-4a74-849f-720b74063177",
               "observed_at": "2026-07-20T10:15:00+00:00",
               "project_id": "payment",
               "rank": 9,
@@ -3959,7 +3959,7 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "ca7ea170-bd23-404a-9586-5b559001b56b",
+              "object_id": "7ff2983d-9c5b-4032-873e-18ef1e4758a1",
               "observed_at": "2026-07-20T12:30:00+00:00",
               "project_id": "payment",
               "rank": 10,
@@ -3980,7 +3980,7 @@
           "expected_conflict": false,
           "forbidden_object_ids": [],
           "id": "optional-coupon-rule",
-          "latency_ms": 0.6384,
+          "latency_ms": 0.7086,
           "retrieval_trace": {
             "authorized_candidate_count": 11,
             "channel_counts": {
@@ -4010,8 +4010,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "e0c89c74-bc2b-49af-8aa5-89f4c1eb7a04",
-              "observed_at": "2026-09-18T06:25:04.417811+00:00",
+              "object_id": "8298b7c7-9bd1-4610-a18c-f42111bc990a",
+              "observed_at": "2026-09-20T03:22:14.768423+00:00",
               "project_id": "payment",
               "rank": 1,
               "relevant": true,
@@ -4034,8 +4034,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "12cff535-7345-42cf-90d9-a50b0f6caad6",
-              "observed_at": "2026-09-18T06:25:04.417811+00:00",
+              "object_id": "58add151-a21b-4167-97b1-421e2be0639c",
+              "observed_at": "2026-09-20T03:22:14.768423+00:00",
               "project_id": "payment",
               "rank": 2,
               "relevant": false,
@@ -4058,8 +4058,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "ff0d942e-6f24-4e4a-8f06-fee7ec3e3f3b",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "c854cb75-38eb-41c7-ab7d-821d034ac366",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 3,
               "relevant": false,
@@ -4082,8 +4082,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "69a5ed12-6aeb-4466-bc11-607d4fe03217",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "15c906d8-a2e7-48e6-89b9-094a3b3d2255",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 4,
               "relevant": false,
@@ -4106,7 +4106,7 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "c9f40cef-b6bd-4370-adb1-414ef4d220b8",
+              "object_id": "3c3af35b-5575-4a74-849f-720b74063177",
               "observed_at": "2026-07-20T10:15:00+00:00",
               "project_id": "payment",
               "rank": 5,
@@ -4130,8 +4130,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "2fb4bdbc-5d31-4fc3-9dfc-016006851dde",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "982cd4ad-a1dc-400a-a8e5-222185028a8f",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 6,
               "relevant": false,
@@ -4154,8 +4154,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "185d658d-395b-4407-b94b-41b1d109c793",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "997b52f0-694b-4b0d-b215-12e3b560059c",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 7,
               "relevant": false,
@@ -4178,8 +4178,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "540098b7-1dcd-4405-a1ca-bf9f8a8a936d",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "185b40c0-69ba-49fa-8fd9-505fa01ff420",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 8,
               "relevant": false,
@@ -4202,8 +4202,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "1a026379-e112-4ee1-9c2f-cc09c1dcedc7",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "9602d7ea-d70b-46f8-a2a9-3d9d69693118",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 9,
               "relevant": false,
@@ -4223,7 +4223,7 @@
           "expected_conflict": false,
           "forbidden_object_ids": [],
           "id": "checkout-runbook",
-          "latency_ms": 0.6929,
+          "latency_ms": 0.6427,
           "retrieval_trace": {
             "authorized_candidate_count": 11,
             "channel_counts": {
@@ -4253,8 +4253,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "12cff535-7345-42cf-90d9-a50b0f6caad6",
-              "observed_at": "2026-09-18T06:25:04.417811+00:00",
+              "object_id": "58add151-a21b-4167-97b1-421e2be0639c",
+              "observed_at": "2026-09-20T03:22:14.768423+00:00",
               "project_id": "payment",
               "rank": 1,
               "relevant": true,
@@ -4277,7 +4277,7 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "0d40d21f-1000-41e0-87fb-83c7da713d7c",
+              "object_id": "6e07ed33-cdc2-4e3c-b4fb-2d50f28b17b1",
               "observed_at": "2026-07-20T14:00:00+00:00",
               "project_id": "payment",
               "rank": 2,
@@ -4301,7 +4301,7 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "c9f40cef-b6bd-4370-adb1-414ef4d220b8",
+              "object_id": "3c3af35b-5575-4a74-849f-720b74063177",
               "observed_at": "2026-07-20T10:15:00+00:00",
               "project_id": "payment",
               "rank": 3,
@@ -4325,7 +4325,7 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "ca7ea170-bd23-404a-9586-5b559001b56b",
+              "object_id": "7ff2983d-9c5b-4032-873e-18ef1e4758a1",
               "observed_at": "2026-07-20T12:30:00+00:00",
               "project_id": "payment",
               "rank": 4,
@@ -4349,8 +4349,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "e0c89c74-bc2b-49af-8aa5-89f4c1eb7a04",
-              "observed_at": "2026-09-18T06:25:04.417811+00:00",
+              "object_id": "8298b7c7-9bd1-4610-a18c-f42111bc990a",
+              "observed_at": "2026-09-20T03:22:14.768423+00:00",
               "project_id": "payment",
               "rank": 5,
               "relevant": false,
@@ -4370,7 +4370,7 @@
           "expected_conflict": false,
           "forbidden_object_ids": [],
           "id": "historical-incident",
-          "latency_ms": 0.7652,
+          "latency_ms": 0.6792,
           "retrieval_trace": {
             "authorized_candidate_count": 11,
             "channel_counts": {
@@ -4400,7 +4400,7 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "c9f40cef-b6bd-4370-adb1-414ef4d220b8",
+              "object_id": "3c3af35b-5575-4a74-849f-720b74063177",
               "observed_at": "2026-07-20T10:15:00+00:00",
               "project_id": "payment",
               "rank": 1,
@@ -4424,8 +4424,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "e0c89c74-bc2b-49af-8aa5-89f4c1eb7a04",
-              "observed_at": "2026-09-18T06:25:04.417811+00:00",
+              "object_id": "8298b7c7-9bd1-4610-a18c-f42111bc990a",
+              "observed_at": "2026-09-20T03:22:14.768423+00:00",
               "project_id": "payment",
               "rank": 2,
               "relevant": false,
@@ -4448,7 +4448,7 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "ca7ea170-bd23-404a-9586-5b559001b56b",
+              "object_id": "7ff2983d-9c5b-4032-873e-18ef1e4758a1",
               "observed_at": "2026-07-20T12:30:00+00:00",
               "project_id": "payment",
               "rank": 3,
@@ -4472,8 +4472,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "69a5ed12-6aeb-4466-bc11-607d4fe03217",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "15c906d8-a2e7-48e6-89b9-094a3b3d2255",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 4,
               "relevant": false,
@@ -4493,7 +4493,7 @@
           "expected_conflict": false,
           "forbidden_object_ids": [],
           "id": "null-guard-resolution",
-          "latency_ms": 0.6764,
+          "latency_ms": 0.9105,
           "retrieval_trace": {
             "authorized_candidate_count": 11,
             "channel_counts": {
@@ -4523,7 +4523,7 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "ca7ea170-bd23-404a-9586-5b559001b56b",
+              "object_id": "7ff2983d-9c5b-4032-873e-18ef1e4758a1",
               "observed_at": "2026-07-20T12:30:00+00:00",
               "project_id": "payment",
               "rank": 1,
@@ -4547,7 +4547,7 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "c9f40cef-b6bd-4370-adb1-414ef4d220b8",
+              "object_id": "3c3af35b-5575-4a74-849f-720b74063177",
               "observed_at": "2026-07-20T10:15:00+00:00",
               "project_id": "payment",
               "rank": 2,
@@ -4571,8 +4571,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "12cff535-7345-42cf-90d9-a50b0f6caad6",
-              "observed_at": "2026-09-18T06:25:04.417811+00:00",
+              "object_id": "58add151-a21b-4167-97b1-421e2be0639c",
+              "observed_at": "2026-09-20T03:22:14.768423+00:00",
               "project_id": "payment",
               "rank": 3,
               "relevant": true,
@@ -4595,7 +4595,7 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "0d40d21f-1000-41e0-87fb-83c7da713d7c",
+              "object_id": "6e07ed33-cdc2-4e3c-b4fb-2d50f28b17b1",
               "observed_at": "2026-07-20T14:00:00+00:00",
               "project_id": "payment",
               "rank": 4,
@@ -4619,8 +4619,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "e0c89c74-bc2b-49af-8aa5-89f4c1eb7a04",
-              "observed_at": "2026-09-18T06:25:04.417811+00:00",
+              "object_id": "8298b7c7-9bd1-4610-a18c-f42111bc990a",
+              "observed_at": "2026-09-20T03:22:14.768423+00:00",
               "project_id": "payment",
               "rank": 5,
               "relevant": false,
@@ -4643,8 +4643,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "ff0d942e-6f24-4e4a-8f06-fee7ec3e3f3b",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "c854cb75-38eb-41c7-ab7d-821d034ac366",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 6,
               "relevant": false,
@@ -4667,8 +4667,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "2fb4bdbc-5d31-4fc3-9dfc-016006851dde",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "982cd4ad-a1dc-400a-a8e5-222185028a8f",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 7,
               "relevant": false,
@@ -4691,8 +4691,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "185d658d-395b-4407-b94b-41b1d109c793",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "997b52f0-694b-4b0d-b215-12e3b560059c",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 8,
               "relevant": false,
@@ -4715,8 +4715,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "540098b7-1dcd-4405-a1ca-bf9f8a8a936d",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "185b40c0-69ba-49fa-8fd9-505fa01ff420",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 9,
               "relevant": false,
@@ -4739,8 +4739,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "1a026379-e112-4ee1-9c2f-cc09c1dcedc7",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "9602d7ea-d70b-46f8-a2a9-3d9d69693118",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 10,
               "relevant": false,
@@ -4760,7 +4760,7 @@
           "expected_conflict": false,
           "forbidden_object_ids": [],
           "id": "entry-point",
-          "latency_ms": 0.6492,
+          "latency_ms": 0.6203,
           "retrieval_trace": {
             "authorized_candidate_count": 11,
             "channel_counts": {
@@ -4790,8 +4790,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "e0c89c74-bc2b-49af-8aa5-89f4c1eb7a04",
-              "observed_at": "2026-09-18T06:25:04.417811+00:00",
+              "object_id": "8298b7c7-9bd1-4610-a18c-f42111bc990a",
+              "observed_at": "2026-09-20T03:22:14.768423+00:00",
               "project_id": "payment",
               "rank": 1,
               "relevant": true,
@@ -4814,8 +4814,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "ff0d942e-6f24-4e4a-8f06-fee7ec3e3f3b",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "c854cb75-38eb-41c7-ab7d-821d034ac366",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 2,
               "relevant": false,
@@ -4838,8 +4838,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "69a5ed12-6aeb-4466-bc11-607d4fe03217",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "15c906d8-a2e7-48e6-89b9-094a3b3d2255",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 3,
               "relevant": true,
@@ -4862,8 +4862,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "12cff535-7345-42cf-90d9-a50b0f6caad6",
-              "observed_at": "2026-09-18T06:25:04.417811+00:00",
+              "object_id": "58add151-a21b-4167-97b1-421e2be0639c",
+              "observed_at": "2026-09-20T03:22:14.768423+00:00",
               "project_id": "payment",
               "rank": 4,
               "relevant": false,
@@ -4886,7 +4886,7 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "c9f40cef-b6bd-4370-adb1-414ef4d220b8",
+              "object_id": "3c3af35b-5575-4a74-849f-720b74063177",
               "observed_at": "2026-07-20T10:15:00+00:00",
               "project_id": "payment",
               "rank": 5,
@@ -4910,8 +4910,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "2fb4bdbc-5d31-4fc3-9dfc-016006851dde",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "982cd4ad-a1dc-400a-a8e5-222185028a8f",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 6,
               "relevant": false,
@@ -4934,8 +4934,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "540098b7-1dcd-4405-a1ca-bf9f8a8a936d",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "185b40c0-69ba-49fa-8fd9-505fa01ff420",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 7,
               "relevant": false,
@@ -4958,7 +4958,7 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "ca7ea170-bd23-404a-9586-5b559001b56b",
+              "object_id": "7ff2983d-9c5b-4032-873e-18ef1e4758a1",
               "observed_at": "2026-07-20T12:30:00+00:00",
               "project_id": "payment",
               "rank": 8,
@@ -4982,8 +4982,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "185d658d-395b-4407-b94b-41b1d109c793",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "997b52f0-694b-4b0d-b215-12e3b560059c",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 9,
               "relevant": false,
@@ -5006,8 +5006,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "1a026379-e112-4ee1-9c2f-cc09c1dcedc7",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "9602d7ea-d70b-46f8-a2a9-3d9d69693118",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 10,
               "relevant": false,
@@ -5027,7 +5027,7 @@
           "expected_conflict": false,
           "forbidden_object_ids": [],
           "id": "business-impact",
-          "latency_ms": 0.6146,
+          "latency_ms": 0.631,
           "retrieval_trace": {
             "authorized_candidate_count": 11,
             "channel_counts": {
@@ -5057,8 +5057,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "e0c89c74-bc2b-49af-8aa5-89f4c1eb7a04",
-              "observed_at": "2026-09-18T06:25:04.417811+00:00",
+              "object_id": "8298b7c7-9bd1-4610-a18c-f42111bc990a",
+              "observed_at": "2026-09-20T03:22:14.768423+00:00",
               "project_id": "payment",
               "rank": 1,
               "relevant": true,
@@ -5081,8 +5081,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "69a5ed12-6aeb-4466-bc11-607d4fe03217",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "15c906d8-a2e7-48e6-89b9-094a3b3d2255",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 2,
               "relevant": false,
@@ -5105,8 +5105,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "ff0d942e-6f24-4e4a-8f06-fee7ec3e3f3b",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "c854cb75-38eb-41c7-ab7d-821d034ac366",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 3,
               "relevant": false,
@@ -5129,8 +5129,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "2fb4bdbc-5d31-4fc3-9dfc-016006851dde",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "982cd4ad-a1dc-400a-a8e5-222185028a8f",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 4,
               "relevant": false,
@@ -5153,8 +5153,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "185d658d-395b-4407-b94b-41b1d109c793",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "997b52f0-694b-4b0d-b215-12e3b560059c",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 5,
               "relevant": false,
@@ -5177,8 +5177,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "540098b7-1dcd-4405-a1ca-bf9f8a8a936d",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "185b40c0-69ba-49fa-8fd9-505fa01ff420",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 6,
               "relevant": false,
@@ -5201,8 +5201,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "1a026379-e112-4ee1-9c2f-cc09c1dcedc7",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "9602d7ea-d70b-46f8-a2a9-3d9d69693118",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 7,
               "relevant": false,
@@ -5225,8 +5225,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "12cff535-7345-42cf-90d9-a50b0f6caad6",
-              "observed_at": "2026-09-18T06:25:04.417811+00:00",
+              "object_id": "58add151-a21b-4167-97b1-421e2be0639c",
+              "observed_at": "2026-09-20T03:22:14.768423+00:00",
               "project_id": "payment",
               "rank": 8,
               "relevant": false,
@@ -5249,7 +5249,7 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "c9f40cef-b6bd-4370-adb1-414ef4d220b8",
+              "object_id": "3c3af35b-5575-4a74-849f-720b74063177",
               "observed_at": "2026-07-20T10:15:00+00:00",
               "project_id": "payment",
               "rank": 9,
@@ -5270,7 +5270,7 @@
           "expected_conflict": false,
           "forbidden_object_ids": [],
           "id": "release-check",
-          "latency_ms": 0.5849,
+          "latency_ms": 0.5697,
           "retrieval_trace": {
             "authorized_candidate_count": 11,
             "channel_counts": {
@@ -5300,8 +5300,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "12cff535-7345-42cf-90d9-a50b0f6caad6",
-              "observed_at": "2026-09-18T06:25:04.417811+00:00",
+              "object_id": "58add151-a21b-4167-97b1-421e2be0639c",
+              "observed_at": "2026-09-20T03:22:14.768423+00:00",
               "project_id": "payment",
               "rank": 1,
               "relevant": true,
@@ -5324,7 +5324,7 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "0d40d21f-1000-41e0-87fb-83c7da713d7c",
+              "object_id": "6e07ed33-cdc2-4e3c-b4fb-2d50f28b17b1",
               "observed_at": "2026-07-20T14:00:00+00:00",
               "project_id": "payment",
               "rank": 2,
@@ -5348,8 +5348,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "e0c89c74-bc2b-49af-8aa5-89f4c1eb7a04",
-              "observed_at": "2026-09-18T06:25:04.417811+00:00",
+              "object_id": "8298b7c7-9bd1-4610-a18c-f42111bc990a",
+              "observed_at": "2026-09-20T03:22:14.768423+00:00",
               "project_id": "payment",
               "rank": 3,
               "relevant": false,
@@ -5372,8 +5372,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "69a5ed12-6aeb-4466-bc11-607d4fe03217",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "15c906d8-a2e7-48e6-89b9-094a3b3d2255",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 4,
               "relevant": false,
@@ -5396,7 +5396,7 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "ca7ea170-bd23-404a-9586-5b559001b56b",
+              "object_id": "7ff2983d-9c5b-4032-873e-18ef1e4758a1",
               "observed_at": "2026-07-20T12:30:00+00:00",
               "project_id": "payment",
               "rank": 5,
@@ -5420,8 +5420,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "ff0d942e-6f24-4e4a-8f06-fee7ec3e3f3b",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "c854cb75-38eb-41c7-ab7d-821d034ac366",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 6,
               "relevant": false,
@@ -5444,7 +5444,7 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "c9f40cef-b6bd-4370-adb1-414ef4d220b8",
+              "object_id": "3c3af35b-5575-4a74-849f-720b74063177",
               "observed_at": "2026-07-20T10:15:00+00:00",
               "project_id": "payment",
               "rank": 7,
@@ -5465,7 +5465,7 @@
           "expected_conflict": false,
           "forbidden_object_ids": [],
           "id": "code-expression",
-          "latency_ms": 0.7222,
+          "latency_ms": 0.7109,
           "retrieval_trace": {
             "authorized_candidate_count": 11,
             "channel_counts": {
@@ -5495,8 +5495,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "69a5ed12-6aeb-4466-bc11-607d4fe03217",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "15c906d8-a2e7-48e6-89b9-094a3b3d2255",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 1,
               "relevant": true,
@@ -5519,8 +5519,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "e0c89c74-bc2b-49af-8aa5-89f4c1eb7a04",
-              "observed_at": "2026-09-18T06:25:04.417811+00:00",
+              "object_id": "8298b7c7-9bd1-4610-a18c-f42111bc990a",
+              "observed_at": "2026-09-20T03:22:14.768423+00:00",
               "project_id": "payment",
               "rank": 2,
               "relevant": false,
@@ -5543,8 +5543,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "540098b7-1dcd-4405-a1ca-bf9f8a8a936d",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "185b40c0-69ba-49fa-8fd9-505fa01ff420",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 3,
               "relevant": false,
@@ -5567,8 +5567,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "1a026379-e112-4ee1-9c2f-cc09c1dcedc7",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "9602d7ea-d70b-46f8-a2a9-3d9d69693118",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 4,
               "relevant": false,
@@ -5591,8 +5591,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "12cff535-7345-42cf-90d9-a50b0f6caad6",
-              "observed_at": "2026-09-18T06:25:04.417811+00:00",
+              "object_id": "58add151-a21b-4167-97b1-421e2be0639c",
+              "observed_at": "2026-09-20T03:22:14.768423+00:00",
               "project_id": "payment",
               "rank": 5,
               "relevant": false,
@@ -5615,8 +5615,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "ff0d942e-6f24-4e4a-8f06-fee7ec3e3f3b",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "c854cb75-38eb-41c7-ab7d-821d034ac366",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 6,
               "relevant": false,
@@ -5639,8 +5639,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "2fb4bdbc-5d31-4fc3-9dfc-016006851dde",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "982cd4ad-a1dc-400a-a8e5-222185028a8f",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 7,
               "relevant": false,
@@ -5663,8 +5663,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "185d658d-395b-4407-b94b-41b1d109c793",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "997b52f0-694b-4b0d-b215-12e3b560059c",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 8,
               "relevant": false,
@@ -5687,7 +5687,7 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "0d40d21f-1000-41e0-87fb-83c7da713d7c",
+              "object_id": "6e07ed33-cdc2-4e3c-b4fb-2d50f28b17b1",
               "observed_at": "2026-07-20T14:00:00+00:00",
               "project_id": "payment",
               "rank": 9,
@@ -5711,7 +5711,7 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "ca7ea170-bd23-404a-9586-5b559001b56b",
+              "object_id": "7ff2983d-9c5b-4032-873e-18ef1e4758a1",
               "observed_at": "2026-07-20T12:30:00+00:00",
               "project_id": "payment",
               "rank": 10,
@@ -5732,7 +5732,7 @@
           "expected_conflict": false,
           "forbidden_object_ids": [],
           "id": "incident-impact",
-          "latency_ms": 0.7164,
+          "latency_ms": 0.8267,
           "retrieval_trace": {
             "authorized_candidate_count": 11,
             "channel_counts": {
@@ -5762,7 +5762,7 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "c9f40cef-b6bd-4370-adb1-414ef4d220b8",
+              "object_id": "3c3af35b-5575-4a74-849f-720b74063177",
               "observed_at": "2026-07-20T10:15:00+00:00",
               "project_id": "payment",
               "rank": 1,
@@ -5786,7 +5786,7 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "ca7ea170-bd23-404a-9586-5b559001b56b",
+              "object_id": "7ff2983d-9c5b-4032-873e-18ef1e4758a1",
               "observed_at": "2026-07-20T12:30:00+00:00",
               "project_id": "payment",
               "rank": 2,
@@ -5810,8 +5810,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "12cff535-7345-42cf-90d9-a50b0f6caad6",
-              "observed_at": "2026-09-18T06:25:04.417811+00:00",
+              "object_id": "58add151-a21b-4167-97b1-421e2be0639c",
+              "observed_at": "2026-09-20T03:22:14.768423+00:00",
               "project_id": "payment",
               "rank": 3,
               "relevant": false,
@@ -5834,7 +5834,7 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "0d40d21f-1000-41e0-87fb-83c7da713d7c",
+              "object_id": "6e07ed33-cdc2-4e3c-b4fb-2d50f28b17b1",
               "observed_at": "2026-07-20T14:00:00+00:00",
               "project_id": "payment",
               "rank": 4,
@@ -5858,8 +5858,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "e0c89c74-bc2b-49af-8aa5-89f4c1eb7a04",
-              "observed_at": "2026-09-18T06:25:04.417811+00:00",
+              "object_id": "8298b7c7-9bd1-4610-a18c-f42111bc990a",
+              "observed_at": "2026-09-20T03:22:14.768423+00:00",
               "project_id": "payment",
               "rank": 5,
               "relevant": false,
@@ -5882,8 +5882,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "69a5ed12-6aeb-4466-bc11-607d4fe03217",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "15c906d8-a2e7-48e6-89b9-094a3b3d2255",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 6,
               "relevant": false,
@@ -5906,8 +5906,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "ff0d942e-6f24-4e4a-8f06-fee7ec3e3f3b",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "c854cb75-38eb-41c7-ab7d-821d034ac366",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 7,
               "relevant": false,
@@ -5930,8 +5930,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "2fb4bdbc-5d31-4fc3-9dfc-016006851dde",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "982cd4ad-a1dc-400a-a8e5-222185028a8f",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 8,
               "relevant": false,
@@ -5954,8 +5954,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "185d658d-395b-4407-b94b-41b1d109c793",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "997b52f0-694b-4b0d-b215-12e3b560059c",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 9,
               "relevant": false,
@@ -5978,8 +5978,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "540098b7-1dcd-4405-a1ca-bf9f8a8a936d",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "185b40c0-69ba-49fa-8fd9-505fa01ff420",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 10,
               "relevant": false,
@@ -5999,7 +5999,7 @@
           "expected_conflict": false,
           "forbidden_object_ids": [],
           "id": "release-as-of-history",
-          "latency_ms": 0.576,
+          "latency_ms": 0.5803,
           "retrieval_trace": {
             "authorized_candidate_count": 11,
             "channel_counts": {
@@ -6029,7 +6029,7 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "0d40d21f-1000-41e0-87fb-83c7da713d7c",
+              "object_id": "6e07ed33-cdc2-4e3c-b4fb-2d50f28b17b1",
               "observed_at": "2026-07-20T14:00:00+00:00",
               "project_id": "payment",
               "rank": 1,
@@ -6053,7 +6053,7 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "c9f40cef-b6bd-4370-adb1-414ef4d220b8",
+              "object_id": "3c3af35b-5575-4a74-849f-720b74063177",
               "observed_at": "2026-07-20T10:15:00+00:00",
               "project_id": "payment",
               "rank": 2,
@@ -6077,7 +6077,7 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "ca7ea170-bd23-404a-9586-5b559001b56b",
+              "object_id": "7ff2983d-9c5b-4032-873e-18ef1e4758a1",
               "observed_at": "2026-07-20T12:30:00+00:00",
               "project_id": "payment",
               "rank": 3,
@@ -6101,8 +6101,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "12cff535-7345-42cf-90d9-a50b0f6caad6",
-              "observed_at": "2026-09-18T06:25:04.417811+00:00",
+              "object_id": "58add151-a21b-4167-97b1-421e2be0639c",
+              "observed_at": "2026-09-20T03:22:14.768423+00:00",
               "project_id": "payment",
               "rank": 4,
               "relevant": false,
@@ -6125,8 +6125,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "e0c89c74-bc2b-49af-8aa5-89f4c1eb7a04",
-              "observed_at": "2026-09-18T06:25:04.417811+00:00",
+              "object_id": "8298b7c7-9bd1-4610-a18c-f42111bc990a",
+              "observed_at": "2026-09-20T03:22:14.768423+00:00",
               "project_id": "payment",
               "rank": 5,
               "relevant": false,
@@ -6146,7 +6146,7 @@
           "expected_conflict": false,
           "forbidden_object_ids": [],
           "id": "unknown-database-policy",
-          "latency_ms": 0.5683,
+          "latency_ms": 0.5599,
           "retrieval_trace": {
             "authorized_candidate_count": 11,
             "channel_counts": {
@@ -6176,8 +6176,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "e0c89c74-bc2b-49af-8aa5-89f4c1eb7a04",
-              "observed_at": "2026-09-18T06:25:04.417811+00:00",
+              "object_id": "8298b7c7-9bd1-4610-a18c-f42111bc990a",
+              "observed_at": "2026-09-20T03:22:14.768423+00:00",
               "project_id": "payment",
               "rank": 1,
               "relevant": false,
@@ -6200,8 +6200,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "12cff535-7345-42cf-90d9-a50b0f6caad6",
-              "observed_at": "2026-09-18T06:25:04.417811+00:00",
+              "object_id": "58add151-a21b-4167-97b1-421e2be0639c",
+              "observed_at": "2026-09-20T03:22:14.768423+00:00",
               "project_id": "payment",
               "rank": 2,
               "relevant": false,
@@ -6224,7 +6224,7 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "c9f40cef-b6bd-4370-adb1-414ef4d220b8",
+              "object_id": "3c3af35b-5575-4a74-849f-720b74063177",
               "observed_at": "2026-07-20T10:15:00+00:00",
               "project_id": "payment",
               "rank": 3,
@@ -6248,8 +6248,8 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "69a5ed12-6aeb-4466-bc11-607d4fe03217",
-              "observed_at": "2026-09-18T06:25:04.415810+00:00",
+              "object_id": "15c906d8-a2e7-48e6-89b9-094a3b3d2255",
+              "observed_at": "2026-09-20T03:22:14.767419+00:00",
               "project_id": "payment",
               "rank": 4,
               "relevant": false,
@@ -6272,7 +6272,7 @@
                 "bm25"
               ],
               "expired": false,
-              "object_id": "ca7ea170-bd23-404a-9586-5b559001b56b",
+              "object_id": "7ff2983d-9c5b-4032-873e-18ef1e4758a1",
               "observed_at": "2026-07-20T12:30:00+00:00",
               "project_id": "payment",
               "rank": 5,
@@ -6302,8 +6302,8 @@
         "irrelevant_rate": 0.8617021276595744,
         "mrr": 0.875,
         "ndcg_at_5": 0.884429,
-        "p50_latency_ms": 0.6764,
-        "p95_latency_ms": 0.7652,
+        "p50_latency_ms": 0.6792,
+        "p95_latency_ms": 0.9105,
         "recall_at_1": 0.875,
         "recall_at_10": 1.0,
         "recall_at_5": 1.0,
@@ -6320,7 +6320,7 @@
           "expected_conflict": false,
           "forbidden_object_ids": [],
           "id": "traceback-location",
-          "latency_ms": 0.8065,
+          "latency_ms": 0.7931,
           "retrieval_trace": {
             "authorized_candidate_count": 11,
             "channel_counts": {
@@ -6352,7 +6352,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "ed74f62b-d264-435c-b21a-2acb04820f11",
+              "object_id": "f4d1e476-d754-444a-9e73-6df52f35590e",
               "observed_at": "2026-07-20T10:15:00+00:00",
               "project_id": "payment",
               "rank": 1,
@@ -6376,7 +6376,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "86616115-988f-49c7-b92f-3e0538da5914",
+              "object_id": "5f41ce74-6185-404c-8032-d7b1c79cfac1",
               "observed_at": "2026-07-20T14:00:00+00:00",
               "project_id": "payment",
               "rank": 2,
@@ -6400,7 +6400,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "136781e1-566b-465f-9218-1f7b6e828c9f",
+              "object_id": "c379b951-8af7-42fe-b641-95c67e623402",
               "observed_at": "2026-07-20T12:30:00+00:00",
               "project_id": "payment",
               "rank": 3,
@@ -6424,8 +6424,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "eccea815-7df9-41ee-a6d2-efc836140bd5",
-              "observed_at": "2026-09-18T06:25:04.429824+00:00",
+              "object_id": "d25d91da-831a-440b-be3e-c7c8c71e806f",
+              "observed_at": "2026-09-20T03:22:14.788436+00:00",
               "project_id": "payment",
               "rank": 4,
               "relevant": false,
@@ -6448,8 +6448,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "85ee09fb-7820-4cd4-bb84-6adf0a2e001f",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "67fe512b-fe93-4db9-953c-7b708a77830b",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 5,
               "relevant": false,
@@ -6472,8 +6472,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "063b3c8d-d941-45eb-996a-e9b71e643fda",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "ec678756-ca94-44b2-8d78-c92f42d89f61",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 6,
               "relevant": false,
@@ -6496,8 +6496,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "213c8283-e324-4b8e-b5a7-88f106f8b1fe",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "c352deac-ce2b-416c-a405-304441679e77",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 7,
               "relevant": true,
@@ -6520,8 +6520,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "457621a4-38f8-4fd8-96cd-ac9ce5511d23",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "09250919-044f-4993-85b8-a3ee72438ac6",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 8,
               "relevant": false,
@@ -6544,8 +6544,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "9c9f75b9-7102-43eb-b3e0-85dd88de1e24",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "1b11f6f4-b65b-4ff5-9006-6850a5eacf45",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 9,
               "relevant": false,
@@ -6568,8 +6568,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "6558db6c-7686-4b1c-951e-ba1d33c09353",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "330c4b61-4c6e-4bd4-a955-b28ad9d43355",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 10,
               "relevant": false,
@@ -6589,7 +6589,7 @@
           "expected_conflict": false,
           "forbidden_object_ids": [],
           "id": "optional-coupon-rule",
-          "latency_ms": 0.7237,
+          "latency_ms": 0.6866,
           "retrieval_trace": {
             "authorized_candidate_count": 11,
             "channel_counts": {
@@ -6621,7 +6621,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "ed74f62b-d264-435c-b21a-2acb04820f11",
+              "object_id": "f4d1e476-d754-444a-9e73-6df52f35590e",
               "observed_at": "2026-07-20T10:15:00+00:00",
               "project_id": "payment",
               "rank": 1,
@@ -6645,7 +6645,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "86616115-988f-49c7-b92f-3e0538da5914",
+              "object_id": "5f41ce74-6185-404c-8032-d7b1c79cfac1",
               "observed_at": "2026-07-20T14:00:00+00:00",
               "project_id": "payment",
               "rank": 2,
@@ -6669,7 +6669,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "136781e1-566b-465f-9218-1f7b6e828c9f",
+              "object_id": "c379b951-8af7-42fe-b641-95c67e623402",
               "observed_at": "2026-07-20T12:30:00+00:00",
               "project_id": "payment",
               "rank": 3,
@@ -6693,8 +6693,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "eccea815-7df9-41ee-a6d2-efc836140bd5",
-              "observed_at": "2026-09-18T06:25:04.429824+00:00",
+              "object_id": "d25d91da-831a-440b-be3e-c7c8c71e806f",
+              "observed_at": "2026-09-20T03:22:14.788436+00:00",
               "project_id": "payment",
               "rank": 4,
               "relevant": true,
@@ -6717,8 +6717,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "85ee09fb-7820-4cd4-bb84-6adf0a2e001f",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "67fe512b-fe93-4db9-953c-7b708a77830b",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 5,
               "relevant": false,
@@ -6741,8 +6741,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "063b3c8d-d941-45eb-996a-e9b71e643fda",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "ec678756-ca94-44b2-8d78-c92f42d89f61",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 6,
               "relevant": false,
@@ -6765,8 +6765,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "213c8283-e324-4b8e-b5a7-88f106f8b1fe",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "c352deac-ce2b-416c-a405-304441679e77",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 7,
               "relevant": false,
@@ -6789,8 +6789,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "457621a4-38f8-4fd8-96cd-ac9ce5511d23",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "09250919-044f-4993-85b8-a3ee72438ac6",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 8,
               "relevant": false,
@@ -6813,8 +6813,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "9c9f75b9-7102-43eb-b3e0-85dd88de1e24",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "1b11f6f4-b65b-4ff5-9006-6850a5eacf45",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 9,
               "relevant": false,
@@ -6837,8 +6837,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "6558db6c-7686-4b1c-951e-ba1d33c09353",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "330c4b61-4c6e-4bd4-a955-b28ad9d43355",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 10,
               "relevant": false,
@@ -6858,7 +6858,7 @@
           "expected_conflict": false,
           "forbidden_object_ids": [],
           "id": "checkout-runbook",
-          "latency_ms": 0.917,
+          "latency_ms": 0.8836,
           "retrieval_trace": {
             "authorized_candidate_count": 11,
             "channel_counts": {
@@ -6890,7 +6890,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "ed74f62b-d264-435c-b21a-2acb04820f11",
+              "object_id": "f4d1e476-d754-444a-9e73-6df52f35590e",
               "observed_at": "2026-07-20T10:15:00+00:00",
               "project_id": "payment",
               "rank": 1,
@@ -6914,7 +6914,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "86616115-988f-49c7-b92f-3e0538da5914",
+              "object_id": "5f41ce74-6185-404c-8032-d7b1c79cfac1",
               "observed_at": "2026-07-20T14:00:00+00:00",
               "project_id": "payment",
               "rank": 2,
@@ -6938,7 +6938,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "136781e1-566b-465f-9218-1f7b6e828c9f",
+              "object_id": "c379b951-8af7-42fe-b641-95c67e623402",
               "observed_at": "2026-07-20T12:30:00+00:00",
               "project_id": "payment",
               "rank": 3,
@@ -6962,8 +6962,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "eccea815-7df9-41ee-a6d2-efc836140bd5",
-              "observed_at": "2026-09-18T06:25:04.429824+00:00",
+              "object_id": "d25d91da-831a-440b-be3e-c7c8c71e806f",
+              "observed_at": "2026-09-20T03:22:14.788436+00:00",
               "project_id": "payment",
               "rank": 4,
               "relevant": false,
@@ -6986,8 +6986,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "85ee09fb-7820-4cd4-bb84-6adf0a2e001f",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "67fe512b-fe93-4db9-953c-7b708a77830b",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 5,
               "relevant": false,
@@ -7010,8 +7010,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "063b3c8d-d941-45eb-996a-e9b71e643fda",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "ec678756-ca94-44b2-8d78-c92f42d89f61",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 6,
               "relevant": false,
@@ -7034,8 +7034,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "213c8283-e324-4b8e-b5a7-88f106f8b1fe",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "c352deac-ce2b-416c-a405-304441679e77",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 7,
               "relevant": false,
@@ -7058,8 +7058,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "457621a4-38f8-4fd8-96cd-ac9ce5511d23",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "09250919-044f-4993-85b8-a3ee72438ac6",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 8,
               "relevant": false,
@@ -7082,8 +7082,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "9c9f75b9-7102-43eb-b3e0-85dd88de1e24",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "1b11f6f4-b65b-4ff5-9006-6850a5eacf45",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 9,
               "relevant": false,
@@ -7106,8 +7106,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "6558db6c-7686-4b1c-951e-ba1d33c09353",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "330c4b61-4c6e-4bd4-a955-b28ad9d43355",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 10,
               "relevant": false,
@@ -7127,7 +7127,7 @@
           "expected_conflict": false,
           "forbidden_object_ids": [],
           "id": "historical-incident",
-          "latency_ms": 0.6646,
+          "latency_ms": 0.7478,
           "retrieval_trace": {
             "authorized_candidate_count": 11,
             "channel_counts": {
@@ -7159,7 +7159,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "ed74f62b-d264-435c-b21a-2acb04820f11",
+              "object_id": "f4d1e476-d754-444a-9e73-6df52f35590e",
               "observed_at": "2026-07-20T10:15:00+00:00",
               "project_id": "payment",
               "rank": 1,
@@ -7183,7 +7183,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "86616115-988f-49c7-b92f-3e0538da5914",
+              "object_id": "5f41ce74-6185-404c-8032-d7b1c79cfac1",
               "observed_at": "2026-07-20T14:00:00+00:00",
               "project_id": "payment",
               "rank": 2,
@@ -7207,7 +7207,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "136781e1-566b-465f-9218-1f7b6e828c9f",
+              "object_id": "c379b951-8af7-42fe-b641-95c67e623402",
               "observed_at": "2026-07-20T12:30:00+00:00",
               "project_id": "payment",
               "rank": 3,
@@ -7231,8 +7231,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "eccea815-7df9-41ee-a6d2-efc836140bd5",
-              "observed_at": "2026-09-18T06:25:04.429824+00:00",
+              "object_id": "d25d91da-831a-440b-be3e-c7c8c71e806f",
+              "observed_at": "2026-09-20T03:22:14.788436+00:00",
               "project_id": "payment",
               "rank": 4,
               "relevant": false,
@@ -7255,8 +7255,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "85ee09fb-7820-4cd4-bb84-6adf0a2e001f",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "67fe512b-fe93-4db9-953c-7b708a77830b",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 5,
               "relevant": false,
@@ -7279,8 +7279,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "063b3c8d-d941-45eb-996a-e9b71e643fda",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "ec678756-ca94-44b2-8d78-c92f42d89f61",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 6,
               "relevant": false,
@@ -7303,8 +7303,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "213c8283-e324-4b8e-b5a7-88f106f8b1fe",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "c352deac-ce2b-416c-a405-304441679e77",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 7,
               "relevant": false,
@@ -7327,8 +7327,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "457621a4-38f8-4fd8-96cd-ac9ce5511d23",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "09250919-044f-4993-85b8-a3ee72438ac6",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 8,
               "relevant": false,
@@ -7351,8 +7351,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "9c9f75b9-7102-43eb-b3e0-85dd88de1e24",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "1b11f6f4-b65b-4ff5-9006-6850a5eacf45",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 9,
               "relevant": false,
@@ -7375,8 +7375,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "6558db6c-7686-4b1c-951e-ba1d33c09353",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "330c4b61-4c6e-4bd4-a955-b28ad9d43355",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 10,
               "relevant": false,
@@ -7396,7 +7396,7 @@
           "expected_conflict": false,
           "forbidden_object_ids": [],
           "id": "null-guard-resolution",
-          "latency_ms": 0.6985,
+          "latency_ms": 0.7169,
           "retrieval_trace": {
             "authorized_candidate_count": 11,
             "channel_counts": {
@@ -7428,7 +7428,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "ed74f62b-d264-435c-b21a-2acb04820f11",
+              "object_id": "f4d1e476-d754-444a-9e73-6df52f35590e",
               "observed_at": "2026-07-20T10:15:00+00:00",
               "project_id": "payment",
               "rank": 1,
@@ -7452,7 +7452,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "86616115-988f-49c7-b92f-3e0538da5914",
+              "object_id": "5f41ce74-6185-404c-8032-d7b1c79cfac1",
               "observed_at": "2026-07-20T14:00:00+00:00",
               "project_id": "payment",
               "rank": 2,
@@ -7476,7 +7476,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "136781e1-566b-465f-9218-1f7b6e828c9f",
+              "object_id": "c379b951-8af7-42fe-b641-95c67e623402",
               "observed_at": "2026-07-20T12:30:00+00:00",
               "project_id": "payment",
               "rank": 3,
@@ -7500,8 +7500,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "eccea815-7df9-41ee-a6d2-efc836140bd5",
-              "observed_at": "2026-09-18T06:25:04.429824+00:00",
+              "object_id": "d25d91da-831a-440b-be3e-c7c8c71e806f",
+              "observed_at": "2026-09-20T03:22:14.788436+00:00",
               "project_id": "payment",
               "rank": 4,
               "relevant": false,
@@ -7524,8 +7524,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "85ee09fb-7820-4cd4-bb84-6adf0a2e001f",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "67fe512b-fe93-4db9-953c-7b708a77830b",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 5,
               "relevant": false,
@@ -7548,8 +7548,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "063b3c8d-d941-45eb-996a-e9b71e643fda",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "ec678756-ca94-44b2-8d78-c92f42d89f61",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 6,
               "relevant": false,
@@ -7572,8 +7572,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "213c8283-e324-4b8e-b5a7-88f106f8b1fe",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "c352deac-ce2b-416c-a405-304441679e77",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 7,
               "relevant": false,
@@ -7596,8 +7596,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "457621a4-38f8-4fd8-96cd-ac9ce5511d23",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "09250919-044f-4993-85b8-a3ee72438ac6",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 8,
               "relevant": false,
@@ -7620,8 +7620,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "9c9f75b9-7102-43eb-b3e0-85dd88de1e24",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "1b11f6f4-b65b-4ff5-9006-6850a5eacf45",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 9,
               "relevant": false,
@@ -7644,8 +7644,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "6558db6c-7686-4b1c-951e-ba1d33c09353",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "330c4b61-4c6e-4bd4-a955-b28ad9d43355",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 10,
               "relevant": false,
@@ -7665,7 +7665,7 @@
           "expected_conflict": false,
           "forbidden_object_ids": [],
           "id": "entry-point",
-          "latency_ms": 0.7695,
+          "latency_ms": 0.6572,
           "retrieval_trace": {
             "authorized_candidate_count": 11,
             "channel_counts": {
@@ -7697,7 +7697,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "ed74f62b-d264-435c-b21a-2acb04820f11",
+              "object_id": "f4d1e476-d754-444a-9e73-6df52f35590e",
               "observed_at": "2026-07-20T10:15:00+00:00",
               "project_id": "payment",
               "rank": 1,
@@ -7721,7 +7721,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "86616115-988f-49c7-b92f-3e0538da5914",
+              "object_id": "5f41ce74-6185-404c-8032-d7b1c79cfac1",
               "observed_at": "2026-07-20T14:00:00+00:00",
               "project_id": "payment",
               "rank": 2,
@@ -7745,7 +7745,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "136781e1-566b-465f-9218-1f7b6e828c9f",
+              "object_id": "c379b951-8af7-42fe-b641-95c67e623402",
               "observed_at": "2026-07-20T12:30:00+00:00",
               "project_id": "payment",
               "rank": 3,
@@ -7769,8 +7769,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "eccea815-7df9-41ee-a6d2-efc836140bd5",
-              "observed_at": "2026-09-18T06:25:04.429824+00:00",
+              "object_id": "d25d91da-831a-440b-be3e-c7c8c71e806f",
+              "observed_at": "2026-09-20T03:22:14.788436+00:00",
               "project_id": "payment",
               "rank": 4,
               "relevant": true,
@@ -7793,8 +7793,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "85ee09fb-7820-4cd4-bb84-6adf0a2e001f",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "67fe512b-fe93-4db9-953c-7b708a77830b",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 5,
               "relevant": false,
@@ -7817,8 +7817,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "063b3c8d-d941-45eb-996a-e9b71e643fda",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "ec678756-ca94-44b2-8d78-c92f42d89f61",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 6,
               "relevant": false,
@@ -7841,8 +7841,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "213c8283-e324-4b8e-b5a7-88f106f8b1fe",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "c352deac-ce2b-416c-a405-304441679e77",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 7,
               "relevant": true,
@@ -7865,8 +7865,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "457621a4-38f8-4fd8-96cd-ac9ce5511d23",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "09250919-044f-4993-85b8-a3ee72438ac6",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 8,
               "relevant": false,
@@ -7889,8 +7889,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "9c9f75b9-7102-43eb-b3e0-85dd88de1e24",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "1b11f6f4-b65b-4ff5-9006-6850a5eacf45",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 9,
               "relevant": false,
@@ -7913,8 +7913,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "6558db6c-7686-4b1c-951e-ba1d33c09353",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "330c4b61-4c6e-4bd4-a955-b28ad9d43355",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 10,
               "relevant": false,
@@ -7934,7 +7934,7 @@
           "expected_conflict": false,
           "forbidden_object_ids": [],
           "id": "business-impact",
-          "latency_ms": 0.6678,
+          "latency_ms": 0.7952,
           "retrieval_trace": {
             "authorized_candidate_count": 11,
             "channel_counts": {
@@ -7966,7 +7966,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "ed74f62b-d264-435c-b21a-2acb04820f11",
+              "object_id": "f4d1e476-d754-444a-9e73-6df52f35590e",
               "observed_at": "2026-07-20T10:15:00+00:00",
               "project_id": "payment",
               "rank": 1,
@@ -7990,7 +7990,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "86616115-988f-49c7-b92f-3e0538da5914",
+              "object_id": "5f41ce74-6185-404c-8032-d7b1c79cfac1",
               "observed_at": "2026-07-20T14:00:00+00:00",
               "project_id": "payment",
               "rank": 2,
@@ -8014,7 +8014,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "136781e1-566b-465f-9218-1f7b6e828c9f",
+              "object_id": "c379b951-8af7-42fe-b641-95c67e623402",
               "observed_at": "2026-07-20T12:30:00+00:00",
               "project_id": "payment",
               "rank": 3,
@@ -8038,8 +8038,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "eccea815-7df9-41ee-a6d2-efc836140bd5",
-              "observed_at": "2026-09-18T06:25:04.429824+00:00",
+              "object_id": "d25d91da-831a-440b-be3e-c7c8c71e806f",
+              "observed_at": "2026-09-20T03:22:14.788436+00:00",
               "project_id": "payment",
               "rank": 4,
               "relevant": true,
@@ -8062,8 +8062,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "85ee09fb-7820-4cd4-bb84-6adf0a2e001f",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "67fe512b-fe93-4db9-953c-7b708a77830b",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 5,
               "relevant": false,
@@ -8086,8 +8086,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "063b3c8d-d941-45eb-996a-e9b71e643fda",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "ec678756-ca94-44b2-8d78-c92f42d89f61",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 6,
               "relevant": false,
@@ -8110,8 +8110,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "213c8283-e324-4b8e-b5a7-88f106f8b1fe",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "c352deac-ce2b-416c-a405-304441679e77",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 7,
               "relevant": false,
@@ -8134,8 +8134,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "457621a4-38f8-4fd8-96cd-ac9ce5511d23",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "09250919-044f-4993-85b8-a3ee72438ac6",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 8,
               "relevant": false,
@@ -8158,8 +8158,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "9c9f75b9-7102-43eb-b3e0-85dd88de1e24",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "1b11f6f4-b65b-4ff5-9006-6850a5eacf45",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 9,
               "relevant": false,
@@ -8182,8 +8182,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "6558db6c-7686-4b1c-951e-ba1d33c09353",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "330c4b61-4c6e-4bd4-a955-b28ad9d43355",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 10,
               "relevant": false,
@@ -8203,7 +8203,7 @@
           "expected_conflict": false,
           "forbidden_object_ids": [],
           "id": "release-check",
-          "latency_ms": 0.7596,
+          "latency_ms": 0.8401,
           "retrieval_trace": {
             "authorized_candidate_count": 11,
             "channel_counts": {
@@ -8235,7 +8235,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "ed74f62b-d264-435c-b21a-2acb04820f11",
+              "object_id": "f4d1e476-d754-444a-9e73-6df52f35590e",
               "observed_at": "2026-07-20T10:15:00+00:00",
               "project_id": "payment",
               "rank": 1,
@@ -8259,7 +8259,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "86616115-988f-49c7-b92f-3e0538da5914",
+              "object_id": "5f41ce74-6185-404c-8032-d7b1c79cfac1",
               "observed_at": "2026-07-20T14:00:00+00:00",
               "project_id": "payment",
               "rank": 2,
@@ -8283,7 +8283,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "136781e1-566b-465f-9218-1f7b6e828c9f",
+              "object_id": "c379b951-8af7-42fe-b641-95c67e623402",
               "observed_at": "2026-07-20T12:30:00+00:00",
               "project_id": "payment",
               "rank": 3,
@@ -8307,8 +8307,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "eccea815-7df9-41ee-a6d2-efc836140bd5",
-              "observed_at": "2026-09-18T06:25:04.429824+00:00",
+              "object_id": "d25d91da-831a-440b-be3e-c7c8c71e806f",
+              "observed_at": "2026-09-20T03:22:14.788436+00:00",
               "project_id": "payment",
               "rank": 4,
               "relevant": false,
@@ -8331,8 +8331,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "85ee09fb-7820-4cd4-bb84-6adf0a2e001f",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "67fe512b-fe93-4db9-953c-7b708a77830b",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 5,
               "relevant": false,
@@ -8355,8 +8355,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "063b3c8d-d941-45eb-996a-e9b71e643fda",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "ec678756-ca94-44b2-8d78-c92f42d89f61",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 6,
               "relevant": false,
@@ -8379,8 +8379,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "213c8283-e324-4b8e-b5a7-88f106f8b1fe",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "c352deac-ce2b-416c-a405-304441679e77",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 7,
               "relevant": false,
@@ -8403,8 +8403,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "457621a4-38f8-4fd8-96cd-ac9ce5511d23",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "09250919-044f-4993-85b8-a3ee72438ac6",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 8,
               "relevant": false,
@@ -8427,8 +8427,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "9c9f75b9-7102-43eb-b3e0-85dd88de1e24",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "1b11f6f4-b65b-4ff5-9006-6850a5eacf45",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 9,
               "relevant": false,
@@ -8451,8 +8451,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "6558db6c-7686-4b1c-951e-ba1d33c09353",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "330c4b61-4c6e-4bd4-a955-b28ad9d43355",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 10,
               "relevant": false,
@@ -8472,7 +8472,7 @@
           "expected_conflict": false,
           "forbidden_object_ids": [],
           "id": "code-expression",
-          "latency_ms": 0.64,
+          "latency_ms": 0.6818,
           "retrieval_trace": {
             "authorized_candidate_count": 11,
             "channel_counts": {
@@ -8504,7 +8504,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "ed74f62b-d264-435c-b21a-2acb04820f11",
+              "object_id": "f4d1e476-d754-444a-9e73-6df52f35590e",
               "observed_at": "2026-07-20T10:15:00+00:00",
               "project_id": "payment",
               "rank": 1,
@@ -8528,7 +8528,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "86616115-988f-49c7-b92f-3e0538da5914",
+              "object_id": "5f41ce74-6185-404c-8032-d7b1c79cfac1",
               "observed_at": "2026-07-20T14:00:00+00:00",
               "project_id": "payment",
               "rank": 2,
@@ -8552,7 +8552,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "136781e1-566b-465f-9218-1f7b6e828c9f",
+              "object_id": "c379b951-8af7-42fe-b641-95c67e623402",
               "observed_at": "2026-07-20T12:30:00+00:00",
               "project_id": "payment",
               "rank": 3,
@@ -8576,8 +8576,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "eccea815-7df9-41ee-a6d2-efc836140bd5",
-              "observed_at": "2026-09-18T06:25:04.429824+00:00",
+              "object_id": "d25d91da-831a-440b-be3e-c7c8c71e806f",
+              "observed_at": "2026-09-20T03:22:14.788436+00:00",
               "project_id": "payment",
               "rank": 4,
               "relevant": false,
@@ -8600,8 +8600,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "85ee09fb-7820-4cd4-bb84-6adf0a2e001f",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "67fe512b-fe93-4db9-953c-7b708a77830b",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 5,
               "relevant": false,
@@ -8624,8 +8624,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "063b3c8d-d941-45eb-996a-e9b71e643fda",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "ec678756-ca94-44b2-8d78-c92f42d89f61",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 6,
               "relevant": false,
@@ -8648,8 +8648,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "213c8283-e324-4b8e-b5a7-88f106f8b1fe",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "c352deac-ce2b-416c-a405-304441679e77",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 7,
               "relevant": true,
@@ -8672,8 +8672,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "457621a4-38f8-4fd8-96cd-ac9ce5511d23",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "09250919-044f-4993-85b8-a3ee72438ac6",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 8,
               "relevant": false,
@@ -8696,8 +8696,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "9c9f75b9-7102-43eb-b3e0-85dd88de1e24",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "1b11f6f4-b65b-4ff5-9006-6850a5eacf45",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 9,
               "relevant": false,
@@ -8720,8 +8720,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "6558db6c-7686-4b1c-951e-ba1d33c09353",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "330c4b61-4c6e-4bd4-a955-b28ad9d43355",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 10,
               "relevant": false,
@@ -8741,7 +8741,7 @@
           "expected_conflict": false,
           "forbidden_object_ids": [],
           "id": "incident-impact",
-          "latency_ms": 0.6399,
+          "latency_ms": 0.7524,
           "retrieval_trace": {
             "authorized_candidate_count": 11,
             "channel_counts": {
@@ -8773,7 +8773,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "ed74f62b-d264-435c-b21a-2acb04820f11",
+              "object_id": "f4d1e476-d754-444a-9e73-6df52f35590e",
               "observed_at": "2026-07-20T10:15:00+00:00",
               "project_id": "payment",
               "rank": 1,
@@ -8797,7 +8797,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "86616115-988f-49c7-b92f-3e0538da5914",
+              "object_id": "5f41ce74-6185-404c-8032-d7b1c79cfac1",
               "observed_at": "2026-07-20T14:00:00+00:00",
               "project_id": "payment",
               "rank": 2,
@@ -8821,7 +8821,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "136781e1-566b-465f-9218-1f7b6e828c9f",
+              "object_id": "c379b951-8af7-42fe-b641-95c67e623402",
               "observed_at": "2026-07-20T12:30:00+00:00",
               "project_id": "payment",
               "rank": 3,
@@ -8845,8 +8845,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "eccea815-7df9-41ee-a6d2-efc836140bd5",
-              "observed_at": "2026-09-18T06:25:04.429824+00:00",
+              "object_id": "d25d91da-831a-440b-be3e-c7c8c71e806f",
+              "observed_at": "2026-09-20T03:22:14.788436+00:00",
               "project_id": "payment",
               "rank": 4,
               "relevant": false,
@@ -8869,8 +8869,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "85ee09fb-7820-4cd4-bb84-6adf0a2e001f",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "67fe512b-fe93-4db9-953c-7b708a77830b",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 5,
               "relevant": false,
@@ -8893,8 +8893,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "063b3c8d-d941-45eb-996a-e9b71e643fda",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "ec678756-ca94-44b2-8d78-c92f42d89f61",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 6,
               "relevant": false,
@@ -8917,8 +8917,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "213c8283-e324-4b8e-b5a7-88f106f8b1fe",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "c352deac-ce2b-416c-a405-304441679e77",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 7,
               "relevant": false,
@@ -8941,8 +8941,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "457621a4-38f8-4fd8-96cd-ac9ce5511d23",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "09250919-044f-4993-85b8-a3ee72438ac6",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 8,
               "relevant": false,
@@ -8965,8 +8965,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "9c9f75b9-7102-43eb-b3e0-85dd88de1e24",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "1b11f6f4-b65b-4ff5-9006-6850a5eacf45",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 9,
               "relevant": false,
@@ -8989,8 +8989,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "6558db6c-7686-4b1c-951e-ba1d33c09353",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "330c4b61-4c6e-4bd4-a955-b28ad9d43355",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 10,
               "relevant": false,
@@ -9010,7 +9010,7 @@
           "expected_conflict": false,
           "forbidden_object_ids": [],
           "id": "release-as-of-history",
-          "latency_ms": 0.6165,
+          "latency_ms": 0.6765,
           "retrieval_trace": {
             "authorized_candidate_count": 11,
             "channel_counts": {
@@ -9042,7 +9042,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "ed74f62b-d264-435c-b21a-2acb04820f11",
+              "object_id": "f4d1e476-d754-444a-9e73-6df52f35590e",
               "observed_at": "2026-07-20T10:15:00+00:00",
               "project_id": "payment",
               "rank": 1,
@@ -9066,7 +9066,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "86616115-988f-49c7-b92f-3e0538da5914",
+              "object_id": "5f41ce74-6185-404c-8032-d7b1c79cfac1",
               "observed_at": "2026-07-20T14:00:00+00:00",
               "project_id": "payment",
               "rank": 2,
@@ -9090,7 +9090,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "136781e1-566b-465f-9218-1f7b6e828c9f",
+              "object_id": "c379b951-8af7-42fe-b641-95c67e623402",
               "observed_at": "2026-07-20T12:30:00+00:00",
               "project_id": "payment",
               "rank": 3,
@@ -9114,8 +9114,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "eccea815-7df9-41ee-a6d2-efc836140bd5",
-              "observed_at": "2026-09-18T06:25:04.429824+00:00",
+              "object_id": "d25d91da-831a-440b-be3e-c7c8c71e806f",
+              "observed_at": "2026-09-20T03:22:14.788436+00:00",
               "project_id": "payment",
               "rank": 4,
               "relevant": false,
@@ -9138,8 +9138,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "85ee09fb-7820-4cd4-bb84-6adf0a2e001f",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "67fe512b-fe93-4db9-953c-7b708a77830b",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 5,
               "relevant": false,
@@ -9162,8 +9162,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "063b3c8d-d941-45eb-996a-e9b71e643fda",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "ec678756-ca94-44b2-8d78-c92f42d89f61",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 6,
               "relevant": false,
@@ -9186,8 +9186,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "213c8283-e324-4b8e-b5a7-88f106f8b1fe",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "c352deac-ce2b-416c-a405-304441679e77",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 7,
               "relevant": false,
@@ -9210,8 +9210,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "457621a4-38f8-4fd8-96cd-ac9ce5511d23",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "09250919-044f-4993-85b8-a3ee72438ac6",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 8,
               "relevant": false,
@@ -9234,8 +9234,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "9c9f75b9-7102-43eb-b3e0-85dd88de1e24",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "1b11f6f4-b65b-4ff5-9006-6850a5eacf45",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 9,
               "relevant": false,
@@ -9258,8 +9258,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "6558db6c-7686-4b1c-951e-ba1d33c09353",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "330c4b61-4c6e-4bd4-a955-b28ad9d43355",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 10,
               "relevant": false,
@@ -9279,7 +9279,7 @@
           "expected_conflict": false,
           "forbidden_object_ids": [],
           "id": "unknown-database-policy",
-          "latency_ms": 0.9834,
+          "latency_ms": 0.9699,
           "retrieval_trace": {
             "authorized_candidate_count": 11,
             "channel_counts": {
@@ -9311,7 +9311,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "ed74f62b-d264-435c-b21a-2acb04820f11",
+              "object_id": "f4d1e476-d754-444a-9e73-6df52f35590e",
               "observed_at": "2026-07-20T10:15:00+00:00",
               "project_id": "payment",
               "rank": 1,
@@ -9335,7 +9335,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "86616115-988f-49c7-b92f-3e0538da5914",
+              "object_id": "5f41ce74-6185-404c-8032-d7b1c79cfac1",
               "observed_at": "2026-07-20T14:00:00+00:00",
               "project_id": "payment",
               "rank": 2,
@@ -9359,7 +9359,7 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "136781e1-566b-465f-9218-1f7b6e828c9f",
+              "object_id": "c379b951-8af7-42fe-b641-95c67e623402",
               "observed_at": "2026-07-20T12:30:00+00:00",
               "project_id": "payment",
               "rank": 3,
@@ -9383,8 +9383,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "eccea815-7df9-41ee-a6d2-efc836140bd5",
-              "observed_at": "2026-09-18T06:25:04.429824+00:00",
+              "object_id": "d25d91da-831a-440b-be3e-c7c8c71e806f",
+              "observed_at": "2026-09-20T03:22:14.788436+00:00",
               "project_id": "payment",
               "rank": 4,
               "relevant": false,
@@ -9407,8 +9407,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "85ee09fb-7820-4cd4-bb84-6adf0a2e001f",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "67fe512b-fe93-4db9-953c-7b708a77830b",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 5,
               "relevant": false,
@@ -9431,8 +9431,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "063b3c8d-d941-45eb-996a-e9b71e643fda",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "ec678756-ca94-44b2-8d78-c92f42d89f61",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 6,
               "relevant": false,
@@ -9455,8 +9455,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "213c8283-e324-4b8e-b5a7-88f106f8b1fe",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "c352deac-ce2b-416c-a405-304441679e77",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 7,
               "relevant": false,
@@ -9479,8 +9479,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "457621a4-38f8-4fd8-96cd-ac9ce5511d23",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "09250919-044f-4993-85b8-a3ee72438ac6",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 8,
               "relevant": false,
@@ -9503,8 +9503,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "9c9f75b9-7102-43eb-b3e0-85dd88de1e24",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "1b11f6f4-b65b-4ff5-9006-6850a5eacf45",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 9,
               "relevant": false,
@@ -9527,8 +9527,8 @@
                 "vector"
               ],
               "expired": false,
-              "object_id": "6558db6c-7686-4b1c-951e-ba1d33c09353",
-              "observed_at": "2026-09-18T06:25:04.428820+00:00",
+              "object_id": "330c4b61-4c6e-4bd4-a955-b28ad9d43355",
+              "observed_at": "2026-09-20T03:22:14.787435+00:00",
               "project_id": "payment",
               "rank": 10,
               "relevant": false,
@@ -9557,8 +9557,8 @@
         "irrelevant_rate": 0.9166666666666666,
         "mrr": 0.377976,
         "ndcg_at_5": 0.364125,
-        "p50_latency_ms": 0.7237,
-        "p95_latency_ms": 0.917,
+        "p50_latency_ms": 0.7524,
+        "p95_latency_ms": 0.8836,
         "recall_at_1": 0.291667,
         "recall_at_10": 0.791667,
         "recall_at_5": 0.583333,

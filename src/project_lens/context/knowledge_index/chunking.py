@@ -74,6 +74,8 @@ class KnowledgeChunkBuilder:
                 "fact_key": document.fact_key,
                 "subject": document.subject,
                 "revision": document.revision,
+                "valid_from": document.valid_from.isoformat() if document.valid_from else None,
+                "valid_to": document.valid_to.isoformat() if document.valid_to else None,
                 "derived": document.kind.value == "obsidian_wiki",
                 "historical": document.kind.value in {"episode", "memory_observation"},
             }
