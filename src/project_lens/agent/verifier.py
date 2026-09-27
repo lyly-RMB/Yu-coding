@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from project_lens.agent.draft import AnswerDraft, parse_citation_id
+from project_lens.agent.draft import AnswerDraft, resolve_citation_id
 from project_lens.agent.read_tools import InvestigationLedger
 from project_lens.domain.models import (
     ActionProposal,
@@ -29,8 +29,8 @@ def verify_answer_draft(
     for fact in draft.facts:
         cited = []
         for raw in fact.citations:
-            eid = parse_citation_id(raw)
-            if eid is not None and eid in evidence_ids:
+            eid = resolve_citation_id(raw, evidence_ids)
+            if eid is not None and eid not in cited:
                 cited.append(eid)
         if cited:
             claims.append(

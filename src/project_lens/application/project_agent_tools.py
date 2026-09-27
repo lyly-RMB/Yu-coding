@@ -45,6 +45,7 @@ from project_lens.application.hermes_validation import (
     validate_patch_plan,
     verify_evidence_links,
 )
+from project_lens.application.conversation_service import ConversationService
 from project_lens.runtime.patch_plan import FilePatch, PatchPlan
 from project_lens.obsidian.repository import ObsidianRepository
 from project_lens.application.knowledge_operations import KnowledgeOperationsService
@@ -76,6 +77,10 @@ _HISTORY_EXTERNAL_TO_INTERNAL: dict[str, str] = {
     "projectlens_get_run_detail": "get_run_detail",
 }
 
+_CITATION_EXTERNAL_TO_INTERNAL: dict[str, str] = {
+    "projectlens_get_citation_body": "get_citation_body",
+}
+
 _ADVANCED_EXTERNAL_TO_INTERNAL: dict[str, str] = {
     "projectlens_propose_patch_plan": "propose_patch_plan",
     "projectlens_propose_test_plan": "propose_test_plan",
@@ -99,12 +104,18 @@ _TOOL_DESCRIPTIONS: dict[str, str] = {
     "projectlens_search_project_history": (
         "Search bounded historical AgentRuns for the current project. Returns "
         "safe summaries, status, tool names, and Evidence ids; raw tool arguments "
-        "and sensitive bodies are excluded."
+        "and sensitive bodies are excluded. If from/to are omitted, defaults to the "
+        "active conversation date window when one is set."
     ),
     "projectlens_get_run_detail": (
         "Read one historical AgentRun by exact run_id after re-checking current "
         "project scope. Returns bounded question, answer summaries, citations, "
         "and event names without raw tool arguments."
+    ),
+    "projectlens_get_citation_body": (
+        "Fetch the full body of one conversation citation by citation_id after "
+        "re-checking current project and chat binding. Use when the context ledger "
+        "only showed citation_id + short_title + time and the original text is needed."
     ),
     "projectlens_search_context": (
         "Search authorized project evidence for a natural-language query. Use this "
@@ -168,8 +179,20 @@ _PARAMETERS: dict[str, dict[str, Any]] = {
         "type": "object",
         "properties": {
             "query": {"type": "string", "description": "Historical run search text"},
-            "from": {"type": "string", "description": "Optional ISO date lower bound"},
-            "to": {"type": "string", "description": "Optional ISO date upper bound"},
+            "from": {
+                "type": "string",
+                "description": (
+                    "Optional ISO date lower bound; when omitted, uses the active "
+                    "session date window start if set"
+                ),
+            },
+            "to": {
+                "type": "string",
+                "description": (
+                    "Optional ISO date upper bound; when omitted, uses the active "
+                    "session date window end if set"
+                ),
+            },
             "limit": {"type": "integer", "description": "1-8 historical summaries; server capped"},
         },
         "required": ["query"],
@@ -181,6 +204,17 @@ _PARAMETERS: dict[str, dict[str, Any]] = {
             "run_id": {"type": "string", "description": "Exact run id returned by history search"},
         },
         "required": ["run_id"],
+        "additionalProperties": False,
+    },
+    "projectlens_get_citation_body": {
+        "type": "object",
+        "properties": {
+            "citation_id": {
+                "type": "string",
+                "description": "Exact citation_id from the session citation ledger",
+            },
+        },
+        "required": ["citation_id"],
         "additionalProperties": False,
     },
     "projectlens_search_context": {
@@ -392,6 +426,7 @@ class ProjectAgentToolService:
         obsidian_repository: ObsidianRepository | None = None,
         knowledge_operations: KnowledgeOperationsService | None = None,
         obsidian_inbox: ObsidianInboxService | None = None,
+        conversation_service: ConversationService | None = None,
         advanced_tools_enabled: bool = False,
     ) -> None:
         self._engine = context_engine
@@ -410,6 +445,7 @@ class ProjectAgentToolService:
         self._obsidian = obsidian_repository
         self._knowledge_operations = knowledge_operations
         self._obsidian_inbox = obsidian_inbox
+        self._conversation = conversation_service
         self._advanced_tools_enabled = advanced_tools_enabled
 
     def configure_knowledge_operations(
@@ -422,6 +458,14 @@ class ProjectAgentToolService:
 
     def configure_obsidian_inbox(self, service: ObsidianInboxService | None) -> None:
         self._obsidian_inbox = service
+
+    def configure_conversation_service(
+        self,
+        service: ConversationService | None,
+    ) -> None:
+        """Attach conversation citation lookup after session store is ready."""
+
+        self._conversation = service
 
     def list_tools(self) -> dict[str, Any]:
         tools = [
@@ -492,6 +536,14 @@ class ProjectAgentToolService:
                 "parameters": _PARAMETERS["projectlens_get_memory_detail"],
                 "allow_apply": False,
             })
+        if self._conversation is not None:
+            tools.insert(0, {
+                "name": "projectlens_get_citation_body",
+                "description": _TOOL_DESCRIPTIONS["projectlens_get_citation_body"],
+                "category": "read",
+                "parameters": _PARAMETERS["projectlens_get_citation_body"],
+                "allow_apply": False,
+            })
         if self._advanced_tools_enabled:
             tools.extend({
                 "name": name,
@@ -523,10 +575,13 @@ class ProjectAgentToolService:
         internal = _EXTERNAL_TO_INTERNAL.get(external)
         is_memory_search = external in _MEMORY_EXTERNAL_TO_INTERNAL
         is_history_tool = external in _HISTORY_EXTERNAL_TO_INTERNAL
+        is_citation_tool = external in _CITATION_EXTERNAL_TO_INTERNAL
         if internal is None and is_memory_search and self._memory_store is not None:
             internal = _MEMORY_EXTERNAL_TO_INTERNAL[external]
         if internal is None and is_history_tool and self._run_repository is not None:
             internal = _HISTORY_EXTERNAL_TO_INTERNAL[external]
+        if internal is None and is_citation_tool and self._conversation is not None:
+            internal = _CITATION_EXTERNAL_TO_INTERNAL[external]
         if internal is None and self._advanced_tools_enabled:
             internal = _ADVANCED_EXTERNAL_TO_INTERNAL.get(external)
         if internal is None:
@@ -571,8 +626,14 @@ class ProjectAgentToolService:
             internal in {"search_project_history", "get_run_detail"}
             and "search_context" in resolved.effective_scope.allowed_tools
         )
+        citation_tool_inherits_context_scope = (
+            internal == "get_citation_body"
+            and "search_context" in resolved.effective_scope.allowed_tools
+        )
         if internal not in resolved.effective_scope.allowed_tools and not (
-            memory_tool_inherits_context_scope or history_tool_inherits_context_scope
+            memory_tool_inherits_context_scope
+            or history_tool_inherits_context_scope
+            or citation_tool_inherits_context_scope
         ):
             denied = AccessDeniedAnswer(
                 reason_code="tool_not_allowed",
@@ -606,6 +667,9 @@ class ProjectAgentToolService:
 
         if internal == "get_run_detail":
             return self._get_run_detail(request=request, external=external, resolved=resolved)
+
+        if internal == "get_citation_body":
+            return self._get_citation_body(request=request, external=external, resolved=resolved)
 
         if internal == "search_wiki":
             return self._search_wiki(request=request, external=external, resolved=resolved)
@@ -1150,6 +1214,27 @@ class ProjectAgentToolService:
         limit = min(max(1, int(request.arguments.get("limit", 5))), 8)
         raw_from = request.arguments.get("from")
         raw_to = request.arguments.get("to")
+        # S07: when caller omits from/to, reuse active session date window.
+        if (
+            self._conversation is not None
+            and (not isinstance(raw_from, str) or not raw_from.strip())
+            and (not isinstance(raw_to, str) or not raw_to.strip())
+        ):
+            window = self._conversation.active_date_window(
+                tenant_id=resolved.project.tenant_id,
+                chat_id=request.chat_id,
+                user_id=request.user_id,
+                project=resolved.project,
+            )
+            if window is not None:
+                if window.start is not None and (
+                    not isinstance(raw_from, str) or not raw_from.strip()
+                ):
+                    raw_from = window.start.astimezone(timezone.utc).isoformat()
+                if window.end is not None and (
+                    not isinstance(raw_to, str) or not raw_to.strip()
+                ):
+                    raw_to = window.end.astimezone(timezone.utc).isoformat()
         lower_bound = _parse_history_date(raw_from, end=False)
         upper_bound = _parse_history_date(raw_to, end=True)
         if (isinstance(raw_from, str) and raw_from.strip() and lower_bound is None) or (
@@ -1302,6 +1387,69 @@ class ProjectAgentToolService:
             "detail_read": True,
         })
         return envelope
+
+    def _get_citation_body(
+        self,
+        *,
+        request: ProjectAgentToolCallRequest,
+        external: str,
+        resolved: ResolvedProjectRuntimeContext,
+    ) -> dict[str, Any]:
+        if self._conversation is None:
+            return _error_envelope(
+                error_code="TOOL_NOT_CONFIGURED",
+                message="conversation citation lookup is not configured",
+                recovery="Use projectlens_search_context for current evidence.",
+                request=request,
+                tool_name=external,
+                internal_tool_name="get_citation_body",
+                resolved=resolved,
+            )
+        citation_id = str(request.arguments.get("citation_id") or "").strip()
+        if not citation_id:
+            return _error_envelope(
+                error_code="INVALID_ARGUMENTS",
+                message="citation_id is required",
+                recovery="Pass citation_id from the session citation ledger.",
+                request=request,
+                tool_name=external,
+                internal_tool_name="get_citation_body",
+                resolved=resolved,
+            )
+        payload = self._conversation.get_citation_body(
+            citation_id=citation_id,
+            tenant_id=resolved.project.tenant_id,
+            chat_id=request.chat_id,
+            user_id=request.user_id,
+            project=resolved.project,
+        )
+        if payload is None:
+            return _error_envelope(
+                error_code="CITATION_NOT_FOUND",
+                message="当前会话绑定下不存在可读取的引用条目。",
+                recovery="Retry with a citation_id from the current session ledger.",
+                request=request,
+                tool_name=external,
+                internal_tool_name="get_citation_body",
+                resolved=resolved,
+            )
+        envelope = _success_envelope(
+            request=request,
+            tool_name=external,
+            internal_tool_name="get_citation_body",
+            result_content=json.dumps(payload, ensure_ascii=False),
+            ledger=InvestigationLedger(),
+            resolved=resolved,
+        )
+        envelope["result"] = payload
+        envelope["audit_ref"].update({
+            "citation_retrieval": True,
+            "citation_id": citation_id,
+            "body_available": bool(payload.get("body_available")),
+            "retrieval_mode": "exact",
+        })
+        return envelope
+
     def _call_advanced(self, *, request: ProjectAgentToolCallRequest, external: str,
                        internal: str, resolved: ResolvedProjectRuntimeContext) -> dict[str, Any]:
         args = request.arguments
@@ -1550,6 +1698,8 @@ def _summary_for(
         return f"search_project_history returned {len(rows)} bounded historical episode(s)."
     if internal_tool_name == "get_run_detail":
         return "get_run_detail returned one authorized historical episode detail."
+    if internal_tool_name == "get_citation_body":
+        return "get_citation_body returned one authorized citation body."
     return f"{internal_tool_name} returned {len(evidence)} citation source(s)."
 
 

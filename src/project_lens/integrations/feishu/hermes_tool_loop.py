@@ -43,6 +43,10 @@ class FeishuHermesToolLoopResult:
     trace_id: UUID | None = None
     answer_draft: Any | None = None
     verified_answer: Any | None = None
+    # GenAI trace inputs (S05): full message chain + tool envelopes with bodies.
+    messages: tuple[Any, ...] = ()
+    tool_calls: tuple[HermesLoopToolCall, ...] = ()
+    final_response: str = ""
 
 
 class ProjectLensToolClient:
@@ -161,6 +165,9 @@ class FeishuHermesToolLoopBridge:
             trace_id=trace_id,
             answer_draft=result.answer_draft,
             verified_answer=result.verified_answer,
+            messages=tuple(result.messages or ()),
+            tool_calls=tuple(result.tool_calls or ()),
+            final_response=str(result.final_response or ""),
         )
 
 
@@ -335,6 +342,10 @@ def _build_answer_envelope(
     }
     if result.error:
         audit_ref["error"] = result.error
+    if result.error_code:
+        audit_ref["error_code"] = result.error_code
+    if result.error_stage:
+        audit_ref["error_stage"] = result.error_stage
 
     if not evidence_refs and citations:
         evidence_refs = list(citations)

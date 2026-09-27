@@ -52,6 +52,9 @@ HISTORY_TOOL_NAMES: frozenset[str] = frozenset({
     "projectlens_search_project_history",
     "projectlens_get_run_detail",
 })
+CITATION_TOOL_NAMES: frozenset[str] = frozenset({
+    "projectlens_get_citation_body",
+})
 
 
 def build_ask_service_from_app(app: FastAPI) -> ProjectAgentAskService:

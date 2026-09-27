@@ -138,6 +138,10 @@ class Settings(BaseSettings):
     obsidian_git_enabled: bool = False
     obsidian_operations_enabled: bool = False
     obsidian_inbox_enabled: bool = False
+    # GenAI trace archives (OpenTelemetry GenAI instruction cycles).
+    # json under data/traces replaces AgentRun table body; SQLite keeps path index.
+    genai_trace_dir: str = "data/traces"
+    genai_trace_retention_days: int = 30
 
 
 settings = Settings()

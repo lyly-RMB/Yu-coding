@@ -27,6 +27,9 @@ dev = [
 mcp = [
     "mcp>=1.1.0",
 ]
+feishu-ws = [
+    "lark-oapi>=1.4.0",
+]
 
 [project.scripts]
 project-lens-mcp = "project_lens.integrations.mcp.server:main"

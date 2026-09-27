@@ -10,6 +10,7 @@ from project_lens.application.answer_envelope import (
     project_answer_to_envelope,
     recoverable_error,
 )
+from project_lens.application.genai_trace_service import GenAITraceService
 from project_lens.application.run_service import RunService
 from project_lens.domain.identity import ActorContext
 from project_lens.domain.models import ProjectAnswer, RunStatus
@@ -37,9 +38,11 @@ class ProjectAgentRunDetailService:
         *,
         run_service: RunService,
         project_runtime_context_resolver: ProjectRuntimeContextResolver,
+        genai_trace_service: GenAITraceService | None = None,
     ) -> None:
         self._run_service = run_service
         self._resolver = project_runtime_context_resolver
+        self._genai_trace_service = genai_trace_service
 
     def run_detail(self, request: ProjectAgentRunDetailRequest) -> dict[str, Any]:
         run = self._run_service.get(request.run_id)
@@ -186,6 +189,46 @@ class ProjectAgentRunDetailService:
             stored_scope=stored_scope,
         )
 
+    def _attach_genai_trace(self, detail: dict[str, Any], *, run) -> dict[str, Any]:
+        """Migration dual-read: prefer GenAI trace json body when present."""
+
+        from project_lens.domain.models import ProjectRef
+
+        if self._genai_trace_service is None:
+            detail["genai_trace"] = None
+            detail["genai_trace_path"] = None
+            return detail
+        try:
+            trace = self._genai_trace_service.get_by_run_id(run.id)
+        except Exception:  # noqa: BLE001
+            trace = None
+        if trace is None:
+            detail["genai_trace"] = None
+            detail["genai_trace_path"] = None
+            return detail
+        matched_path = None
+        for record in self._genai_trace_service.list_index_for_project(
+            ProjectRef(tenant_id=trace.tenant_id, project_id=trace.project_id),
+            limit=200,
+        ):
+            if record.run_id == run.id or record.trace_id == trace.trace_id:
+                matched_path = record.file_path
+                break
+        detail["genai_trace_path"] = matched_path
+        detail["genai_trace"] = {
+            "trace_id": str(trace.trace_id),
+            "started_at": trace.started_at.isoformat(),
+            "ended_at": trace.ended_at.isoformat(),
+            "user_instruction": trace.user_instruction,
+            "messages": list(trace.messages),
+            "ai_replies": list(trace.ai_replies),
+            "tool_results": list(trace.tool_results),
+            "tools": list(trace.tools),
+            "runtime_state": dict(trace.runtime_state),
+            "ordered_entry_kinds": [item.kind for item in trace.ordered_entries()],
+        }
+        return detail
+
     def _completed_detail(
         self,
         *,
@@ -236,7 +279,7 @@ class ProjectAgentRunDetailService:
             ),
             "role_views_available": envelope.get("role_views_available") or [],
         }
-        return detail
+        return self._attach_genai_trace(detail, run=run)
 
     def _failed_detail(
         self,
@@ -300,7 +343,7 @@ class ProjectAgentRunDetailService:
                 "debug",
             ],
         }
-        return detail
+        return self._attach_genai_trace(detail, run=run)
 
 
 def _scopes_match(left: EffectiveAccessScope, right: EffectiveAccessScope) -> bool:

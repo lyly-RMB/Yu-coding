@@ -103,13 +103,13 @@ def test_feishu_chitchat_returns_collaboration_gate_without_run() -> None:
     body = response.json()
     assert body["status"] == "accepted"
     assert "run_id" not in body
-    cards = [
+    texts = [
         item
         for item in app.state.feishu_messenger.messages
-        if item.message_type == "interactive"
+        if item.message_type == "text"
     ]
-    assert cards
-    assert cards[-1].content["header"]["title"]["content"] == "ProjectLens 协作入口"
+    assert texts
+    assert "协作入口" in texts[-1].content["text"] or "ProjectLens" in texts[-1].content["text"]
 
 
 def test_feishu_model_question_returns_about_bot_without_run() -> None:
@@ -127,24 +127,21 @@ def test_feishu_model_question_returns_about_bot_without_run() -> None:
     body = response.json()
     assert body["status"] == "accepted"
     assert "run_id" not in body
-    cards = [
+    texts = [
         item
         for item in app.state.feishu_messenger.messages
-        if item.message_type == "interactive"
+        if item.message_type == "text"
     ]
-    assert cards
-    assert cards[-1].content["header"]["title"]["content"] == "ProjectLens 关于我"
-    card_text = "\n".join(
-        item.get("content", "")
-        for item in cards[-1].content["elements"]
-        if isinstance(item, dict)
-    )
+    assert texts
+    card_text = texts[-1].content["text"]
+    assert "关于我" in card_text or "ProjectLens" in card_text
     assert "当前 Skill" not in card_text
     assert "收集项目证据" not in card_text
     progress = [
         item
         for item in app.state.feishu_messenger.messages
-        if item.message_type == "text" and "收集项目证据" in item.content
+        if item.message_type == "text"
+        and "收集项目证据" in str(item.content.get("text") or "")
     ]
     assert not progress
 

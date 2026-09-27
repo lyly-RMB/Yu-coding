@@ -62,7 +62,7 @@ ProjectLens 的目标不是替团队做所有决定，而是让团队更快获�
 Copy-Item .env.example .env
 # 编辑 .env：填入飞书 / Hermes / 项目绑定；密钥不要提交
 
-py -3.12 -m pip install -e ".[dev]"
+py -3.12 -m pip install -e ".[dev,mcp,feishu-ws]"
 py -3.12 -m pytest -q
 py -3.12 -m uvicorn project_lens.main:app --reload
 ```
@@ -76,15 +76,15 @@ GET /api/v1/ready
 GET /api/v1/integrations/feishu/status
 ```
 
-飞书事件回调：
+飞书群联调（推荐长连接，无需公网穿透）：
 
-```text
-POST /api/v1/feishu/events
+```powershell
+.\scripts\start-projectlens-feishu-ws.ps1
 ```
 
-默认生产决策路径为 `PROJECT_LENS_AGENT_MODE=hermes`。可执行配置剖面见 [`docs/pilot-launch-config.md`](docs/pilot-launch-config.md)。
+开放平台「事件 / 回调」均选长连接；`@` 后先出上下文预览卡。细节见 [`docs/feishu-test-quickstart.md`](docs/feishu-test-quickstart.md)。
 
-**想在飞书群里测试？** 按 [`docs/feishu-test-quickstart.md`](docs/feishu-test-quickstart.md) 配置飞书应用、`.env`、群绑定、`open_id` 成员与 Hermes，并完成冒烟提问。Hermes profile 样例见 [`config/hermes/README.md`](config/hermes/README.md)。
+默认生产决策路径为 `PROJECT_LENS_AGENT_MODE=hermes`。可执行配置剖面见 [`docs/pilot-launch-config.md`](docs/pilot-launch-config.md)。Hermes profile（CLI/MCP 调试）见 [`config/hermes/README.md`](config/hermes/README.md)。
 
 ## 项目接入
 

@@ -16,3 +16,10 @@ build/
 *.sqlite3
 _feishu_try_ask.json
 desktop.ini
+
+# GenAI / local runtime artifacts (never commit real traces)
+data/
+
+架构分析.md
+思考/
+.cursor/

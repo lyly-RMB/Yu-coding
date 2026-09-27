@@ -112,25 +112,35 @@ class HttpFeishuMessenger(FeishuMessenger):
         self._max_retries = max_retries
 
     async def post_text(self, chat_id: str, text: str) -> None:
-        await self.post_card(
+        """Send a plain text IM message (not an interactive card)."""
+
+        body = (text or "").strip() or "（空回复）"
+        # Feishu text content is a JSON string of {"text": "..."}.
+        await asyncio.to_thread(
+            self._post_sync,
             chat_id,
-            {
-                "config": {"wide_screen_mode": True},
-                "elements": [{"tag": "markdown", "content": text}],
-            },
+            {"text": body[:15_000]},
+            "chat_id",
+            msg_type="text",
         )
 
     async def post_card(self, chat_id: str, card: dict[str, Any]) -> None:
-        await asyncio.to_thread(self._post_sync, chat_id, card, "chat_id")
+        await asyncio.to_thread(
+            self._post_sync, chat_id, card, "chat_id", msg_type="interactive"
+        )
 
     async def post_user_card(self, open_id: str, card: dict[str, Any]) -> None:
-        await asyncio.to_thread(self._post_sync, open_id, card, "open_id")
+        await asyncio.to_thread(
+            self._post_sync, open_id, card, "open_id", msg_type="interactive"
+        )
 
     def _post_sync(
         self,
         receive_id: str,
         content: dict[str, Any],
         receive_id_type: str,
+        *,
+        msg_type: str = "interactive",
     ) -> None:
         assert_external_calls_allowed("feishu")
         last_payload: object = None
@@ -149,7 +159,7 @@ class HttpFeishuMessenger(FeishuMessenger):
                 body=json.dumps(
                     {
                         "receive_id": receive_id,
-                        "msg_type": "interactive",
+                        "msg_type": msg_type,
                         "content": json.dumps(content, ensure_ascii=False),
                     },
                     ensure_ascii=False,

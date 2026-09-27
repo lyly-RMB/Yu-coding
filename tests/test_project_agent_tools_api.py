@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from uuid import uuid4
+
 from fastapi.testclient import TestClient
 
 from project_lens.main import create_app
@@ -61,6 +63,7 @@ def test_project_agent_tools_list_is_read_only_and_namespaced() -> None:
     assert body["ok"] is True
     names = {item["name"] for item in body["tools"]}
     assert names == {
+        "projectlens_get_citation_body",
         "projectlens_search_project_memory",
         "projectlens_get_memory_detail",
         "projectlens_search_project_history",
@@ -196,6 +199,122 @@ def test_project_agent_history_search_and_detail_are_bounded() -> None:
     assert detail["ok"] is True
     assert detail["result"]["run_id"] == str(run.id)
     assert detail["result"]["raw_tool_arguments_available"] is False
+
+
+def test_project_agent_history_search_defaults_to_session_date_window() -> None:
+    """S07: omitted from/to reuse active conversation date window."""
+
+    from datetime import datetime, timezone
+
+    client = _client()
+    app = client.app
+    project = ProjectRef(tenant_id="demo", project_id="payment")
+    old = app.state.run_service.create(
+        project=project,
+        user_id="u1",
+        question="old kafka lag topic",
+        channel_id="chat-1",
+    )
+    # Force old timestamps outside the window.
+    old = old.model_copy(
+        update={
+            "created_at": datetime(2026, 8, 1, tzinfo=timezone.utc),
+            "updated_at": datetime(2026, 8, 1, tzinfo=timezone.utc),
+        }
+    )
+    app.state.run_service._repository.add(old)  # noqa: SLF001 - test fixture
+
+    new = app.state.run_service.create(
+        project=project,
+        user_id="u1",
+        question="new kafka lag topic",
+        channel_id="chat-1",
+    )
+
+    conversation = app.state.conversation_service
+    session = conversation.get_or_create(
+        tenant_id="demo",
+        chat_id="chat-1",
+        user_id="u1",
+        project=project,
+    )
+    session = conversation.set_date_window(
+        session,
+        start=datetime(2026, 9, 1, tzinfo=timezone.utc),
+        end=None,
+        refresh_pending=False,
+    )
+    assert session.date_window is not None
+
+    result = client.post(
+        "/api/v1/project-agent/tools/call",
+        json=_call_payload(
+            tool_name="projectlens_search_project_history",
+            arguments={"query": "kafka lag", "limit": 8},
+        ),
+        headers=_headers(actor_id="u1"),
+    ).json()
+    assert result["ok"] is True
+    run_ids = {item["run_id"] for item in result["result"]["history"]}
+    assert str(new.id) in run_ids
+    assert str(old.id) not in run_ids
+
+
+def test_project_agent_get_citation_body_is_scoped_to_binding() -> None:
+    client = _client()
+    app = client.app
+    conversation = app.state.conversation_service
+    project = ProjectRef(tenant_id="demo", project_id="payment")
+    session = conversation.get_or_create(
+        tenant_id="demo",
+        chat_id="chat-1",
+        user_id="u1",
+        project=project,
+    )
+    session = conversation.record_turn(
+        session,
+        user_id="u1",
+        text="citation-body-for-tool-test",
+        rewritten_question=None,
+        run_id=uuid4(),
+    )
+    citation_id = session.citations[0].citation_id
+
+    ok = client.post(
+        "/api/v1/project-agent/tools/call",
+        json=_call_payload(
+            tool_name="projectlens_get_citation_body",
+            arguments={"citation_id": citation_id},
+        ),
+        headers=_headers(actor_id="u1"),
+    ).json()
+    assert ok["ok"] is True
+    assert ok["internal_tool_name"] == "get_citation_body"
+    assert ok["result"]["body"] == "citation-body-for-tool-test"
+    assert ok["result"]["body_available"] is True
+
+    missing = client.post(
+        "/api/v1/project-agent/tools/call",
+        json=_call_payload(
+            tool_name="projectlens_get_citation_body",
+            arguments={"citation_id": "missing-citation"},
+        ),
+        headers=_headers(actor_id="u1"),
+    ).json()
+    assert missing["ok"] is False
+    assert missing["error_code"] == "CITATION_NOT_FOUND"
+
+    wrong_chat = client.post(
+        "/api/v1/project-agent/tools/call",
+        json=_call_payload(
+            tool_name="projectlens_get_citation_body",
+            arguments={"citation_id": citation_id},
+            chat_id="other-chat",
+        ),
+        headers=_headers(actor_id="u1", chat_id="other-chat"),
+    ).json()
+    assert wrong_chat["ok"] is False
+    assert wrong_chat["error_code"] == "CITATION_NOT_FOUND"
 
 
 def test_project_agent_history_search_honors_date_bounds() -> None:

@@ -195,8 +195,12 @@ def test_feishu_http_adapter_caches_token_and_posts_card() -> None:
     assert len(token_calls) == 1
     assert len(message_calls) == 2
     assert message_calls[0]["headers"]["Authorization"] == "Bearer tenant-token"
-    body = json.loads(message_calls[0]["body"].decode("utf-8"))
-    assert body["receive_id"] == "chat-1"
+    card_body = json.loads(message_calls[0]["body"].decode("utf-8"))
+    assert card_body["receive_id"] == "chat-1"
+    assert card_body["msg_type"] == "interactive"
+    text_body = json.loads(message_calls[1]["body"].decode("utf-8"))
+    assert text_body["msg_type"] == "text"
+    assert json.loads(text_body["content"])["text"] == "progress"
 
 
 def test_feishu_status_exposes_agent_mode_for_grey_release() -> None:
@@ -504,7 +508,7 @@ def test_feishu_natural_project_question_uses_one_real_hermes_run() -> None:
             found_scratch = True
             break
     assert found_scratch
-    assert app.state.feishu_messenger.messages[-1].message_type == "interactive"
+    assert app.state.feishu_messenger.messages[-1].message_type == "text"
 
 def test_feishu_chat_policy_narrows_developer_tools_by_intersection() -> None:
     app = create_app()

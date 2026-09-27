@@ -132,10 +132,13 @@ from project_lens.integrations.feishu.http_adapter import (
 from project_lens.integrations.feishu.hermes_tool_loop import FeishuHermesToolLoopBridge
 from project_lens.integrations.hermes_plugin.config import ProjectLensPluginConfig
 from project_lens.integrations.feishu.identity import parse_project_bindings
+from project_lens.integrations.feishu.messages_client import FeishuMessagesClient
 from project_lens.integrations.feishu.routes import router as feishu_router
 from project_lens.integrations.feishu.security import FeishuRequestVerifier
 from project_lens.integrations.feishu.service import FeishuEventService
 from project_lens.integrations.feishu.status_routes import router as feishu_status_router
+from project_lens.application.genai_trace_service import GenAITraceService
+from project_lens.persistence.genai_trace_store import GenAITraceStore
 from project_lens.persistence.sqlite import (
     SQLiteApprovalStore,
     SQLiteDatabase,
@@ -414,10 +417,19 @@ def create_app(database_path: str = ":memory:") -> FastAPI:
             )
         ),
     )
+    genai_trace_root = Path(settings.genai_trace_dir)
+    if not genai_trace_root.is_absolute():
+        genai_trace_root = base_dir / genai_trace_root
+    genai_trace_service = GenAITraceService(
+        GenAITraceStore(database, root_dir=genai_trace_root),
+        retention_days=settings.genai_trace_retention_days,
+    )
     hermes_runtime_service = HermesRuntimeService(
         run_service=run_service,
         bridge=hermes_tool_loop_bridge,
         context_snapshots=context_snapshot_service,
+        genai_trace_service=genai_trace_service,
+        tool_catalog_provider=project_agent_tool_service,
     )
     project_agent_ask_service = ProjectAgentAskService(
         hermes_runtime=hermes_runtime_service,
@@ -430,12 +442,14 @@ def create_app(database_path: str = ":memory:") -> FastAPI:
     project_agent_run_detail_service = ProjectAgentRunDetailService(
         run_service=run_service,
         project_runtime_context_resolver=runtime_context_resolver,
+        genai_trace_service=genai_trace_service,
     )
     application.state.model_adapter = model_adapter
     application.state.project_registry = project_registry
     application.state.project_runtime_context_resolver = runtime_context_resolver
     application.state.run_service = run_service
     application.state.hermes_runtime_service = hermes_runtime_service
+    application.state.genai_trace_service = genai_trace_service
     application.state.project_agent_ask_service = project_agent_ask_service
     application.state.project_agent_role_view_service = project_agent_role_view_service
     application.state.project_agent_run_detail_service = project_agent_run_detail_service
@@ -587,12 +601,23 @@ def create_app(database_path: str = ":memory:") -> FastAPI:
         ),
     )
     conversation_store = _build_conversation_store(database)
+    group_history_client = (
+        FeishuMessagesClient(
+            token_provider=token_provider,
+            base_url=settings.feishu_api_base_url,
+        )
+        if token_provider is not None
+        else None
+    )
     conversation_service = ConversationService(
         store=conversation_store,
         lifecycle=lifecycle,
+        group_history=group_history_client,
     )
     application.state.conversation_store = conversation_store
     application.state.conversation_service = conversation_service
+    application.state.feishu_messages_client = group_history_client
+    project_agent_tool_service.configure_conversation_service(conversation_service)
     application.state.feishu_event_service = FeishuEventService(
         run_service=run_service,
         verifier=FeishuRequestVerifier(

@@ -43,6 +43,9 @@ HISTORY_TOOL_NAMES: tuple[str, ...] = (
     "projectlens_search_project_history",
     "projectlens_get_run_detail",
 )
+CITATION_TOOL_NAMES: tuple[str, ...] = (
+    "projectlens_get_citation_body",
+)
 ADVANCED_TOOL_NAMES: tuple[str, ...] = (
     "projectlens_propose_patch_plan",
     "projectlens_propose_test_plan",
@@ -99,6 +102,16 @@ _DEFAULT_PARAMETERS: dict[str, dict[str, Any]] = {
             "run_id": {"type": "string", "description": "Exact run id returned by project history search"},
         },
         "required": ["run_id"],
+    },
+    "projectlens_get_citation_body": {
+        "type": "object",
+        "properties": {
+            "citation_id": {
+                "type": "string",
+                "description": "Exact citation_id from the session citation ledger",
+            },
+        },
+        "required": ["citation_id"],
     },
     "projectlens_search_context": {
         "type": "object",
@@ -234,6 +247,7 @@ def resolve_tool_catalog(client: ProjectLensApiClient) -> list[dict[str, Any]]:
             | set(INBOX_PROPOSAL_TOOL_NAMES)
             | set(MEMORY_TOOL_NAMES)
             | set(HISTORY_TOOL_NAMES)
+            | set(CITATION_TOOL_NAMES)
         )
         client_config = getattr(client, "config", None)
         if getattr(client_config, "advanced_tools_enabled", False):

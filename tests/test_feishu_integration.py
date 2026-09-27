@@ -129,7 +129,7 @@ def test_feishu_project_question_creates_real_hermes_run_and_card() -> None:
     assert run.answer is not None
     assert app.state.event_sink.for_run(run.id)
     assert len(app.state.feishu_messenger.messages) == 1
-    assert app.state.feishu_messenger.messages[0].message_type == "interactive"
+    assert app.state.feishu_messenger.messages[0].message_type == "text"
 
 
 def test_feishu_debug_project_command_is_hermes_and_keeps_run_id() -> None:

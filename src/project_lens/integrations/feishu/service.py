@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
@@ -42,14 +43,20 @@ from project_lens.domain.models import ProjectRef, RunStatus
 from project_lens.integrations.feishu.adapter import FeishuMessenger
 from project_lens.integrations.feishu.audiences import AnswerAudience, detect_audience_switch
 from project_lens.integrations.feishu.cards import (
+    card_payload_as_text,
+    format_answer_as_text,
+    format_failure_as_text,
     render_about_bot_card,
-    render_answer_card,
     render_collaboration_gate_card,
-    render_failure_card,
+    render_context_date_window_card,
+    render_context_edit_card,
+    render_context_more_history_card,
+    render_context_preview_card,
     render_feishu_doc_sync_status_card,
     render_memory_decision_card,
     render_run_detail_card,
     render_risk_feedback_result_card,
+    decode_group_page_stack,
 )
 from project_lens.integrations.feishu.commands import rewrite_feishu_message
 from project_lens.integrations.feishu.idempotency import EventDeduplicator
@@ -81,15 +88,25 @@ class FeishuCallbackResult:
     run_id: str | None = None
     challenge: str | None = None
     proposal_id: str | None = None
+    card: dict[str, Any] | None = None
+    toast_type: str | None = None
+    toast_content: str | None = None
 
-    def to_response(self) -> dict[str, str]:
+    def to_response(self) -> dict[str, Any]:
         if self.challenge is not None and self.status == "verified":
             return {"challenge": self.challenge}
-        response: dict[str, str] = {"status": self.status}
+        response: dict[str, Any] = {"status": self.status}
         if self.run_id:
             response["run_id"] = self.run_id
         if self.proposal_id:
             response["proposal_id"] = self.proposal_id
+        if self.card is not None:
+            response["card"] = {"type": "raw", "data": self.card}
+        if self.toast_content:
+            response["toast"] = {
+                "type": self.toast_type or "info",
+                "content": self.toast_content[:100],
+            }
         return response
 
 
@@ -378,28 +395,19 @@ class FeishuEventService:
             return FeishuCallbackResult(status="accepted")
 
         if ingress.creates_project_run:
-            try:
-                pending = self._prepare_hermes_execution(
-                    project=context.project,
-                    actor=context.actor,
-                    scope=message_access.effective_scope,
-                    question=question_for_run,
-                    entry_mode=ingress.entry_mode or "natural_project_question",
-                    session=session,
-                )
-            except PermissionError as exc:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)
-                ) from exc
-            background_tasks.add_task(
-                self._execute_prepared_hermes_tool_loop_and_reply,
-                pending,
-                message.chat_id,
-                session.session_id,
-                text,
-                audit_rewrite,
+            session = self._conversation.refresh_pending_send(
+                session,
+                question=text,
+                question_for_run=question_for_run,
             )
-            return FeishuCallbackResult(status="accepted", run_id=str(pending.run.id))
+            pending_state = session.pending_send
+            assert pending_state is not None
+            background_tasks.add_task(
+                self._messenger.post_card,
+                message.chat_id,
+                self._context_preview_card_payload(session),
+            )
+            return FeishuCallbackResult(status="accepted")
 
         # Bot/meta questions (e.g. 你用的是什么模型) — never project Skill analysis.
         if ingress.kind == FeishuIngressKind.BOT_META:
@@ -519,6 +527,145 @@ class FeishuEventService:
                 chat_id=chat_id,
                 user_id=operator_open_id,
                 text=question,
+                background_tasks=background_tasks,
+            )
+
+        if action_name == "context_direct_answer":
+            return self._handle_context_direct_answer(
+                value=value,
+                tenant_key=tenant_key.strip(),
+                chat_id=chat_id,
+                operator=operator,
+                context=context,
+                background_tasks=background_tasks,
+            )
+
+        if action_name == "context_exclude_item":
+            return self._handle_context_exclude_item(
+                value=value,
+                chat_id=chat_id,
+                background_tasks=background_tasks,
+            )
+
+        if action_name == "context_edit":
+            return self._handle_context_edit(
+                value=value,
+                chat_id=chat_id,
+                background_tasks=background_tasks,
+            )
+
+        if action_name == "context_more_history":
+            return self._handle_context_more_history(
+                value=value,
+                chat_id=chat_id,
+                background_tasks=background_tasks,
+            )
+
+        if action_name == "context_confirm_edit":
+            return self._handle_context_confirm_edit(
+                value=value,
+                chat_id=chat_id,
+                background_tasks=background_tasks,
+            )
+
+        if action_name == "context_back_preview":
+            return self._handle_context_back_preview(
+                value=value,
+                chat_id=chat_id,
+                background_tasks=background_tasks,
+            )
+
+        if action_name == "context_include_citation":
+            return self._handle_context_include_citation(
+                value=value,
+                chat_id=chat_id,
+                background_tasks=background_tasks,
+            )
+
+        if action_name == "context_select_history":
+            return self._handle_context_select_history(
+                value=value,
+                chat_id=chat_id,
+                background_tasks=background_tasks,
+            )
+
+        if action_name == "context_select_group_message":
+            return self._handle_context_select_group_message(
+                value=value,
+                chat_id=chat_id,
+                background_tasks=background_tasks,
+            )
+
+        if action_name == "context_restore_item":
+            return self._handle_context_restore_item(
+                value=value,
+                chat_id=chat_id,
+                background_tasks=background_tasks,
+            )
+
+        if action_name == "context_fork_branch":
+            return self._handle_context_fork_branch(
+                value=value,
+                chat_id=chat_id,
+                background_tasks=background_tasks,
+            )
+
+        if action_name == "context_switch_branch":
+            return self._handle_context_switch_branch(
+                value=value,
+                chat_id=chat_id,
+                background_tasks=background_tasks,
+            )
+
+        if action_name == "context_delete_branch":
+            return self._handle_context_delete_branch(
+                value=value,
+                chat_id=chat_id,
+                background_tasks=background_tasks,
+            )
+
+        if action_name == "context_open_date_window":
+            return self._handle_context_open_date_window(
+                value=value,
+                chat_id=chat_id,
+                background_tasks=background_tasks,
+            )
+
+        if action_name in {"context_set_date_start", "context_set_date_end"}:
+            option = str(action.get("option") or value.get("option") or "").strip()
+            return self._handle_context_set_date_bound(
+                value=value,
+                bound="start" if action_name.endswith("start") else "end",
+                option=option,
+                chat_id=chat_id,
+                background_tasks=background_tasks,
+            )
+
+        if action_name == "context_confirm_date_window":
+            return self._handle_context_confirm_date_window(
+                value=value,
+                chat_id=chat_id,
+                background_tasks=background_tasks,
+            )
+
+        if action_name == "context_clear_date_window":
+            return self._handle_context_clear_date_window(
+                value=value,
+                chat_id=chat_id,
+                background_tasks=background_tasks,
+            )
+
+        if action_name in {"context_edit_placeholder", "context_more_history_placeholder"}:
+            # Compat for stale cards still showing S03 placeholders.
+            if action_name == "context_edit_placeholder":
+                return self._handle_context_edit(
+                    value={**value, "action": "context_edit"},
+                    chat_id=chat_id,
+                    background_tasks=background_tasks,
+                )
+            return self._handle_context_more_history(
+                value={**value, "action": "context_more_history", "offset": "0"},
+                chat_id=chat_id,
                 background_tasks=background_tasks,
             )
 
@@ -737,23 +884,752 @@ class FeishuEventService:
             )
             return FeishuCallbackResult(status="accepted")
 
-        pending = self._prepare_hermes_execution(
-            project=context.project,
-            actor=context.actor,
-            scope=message_access.effective_scope,
-            question=question_for_run,
-            entry_mode=ingress.entry_mode or "feishu_card_ask",
-            session=session,
+        session = self._conversation.refresh_pending_send(
+            session,
+            question=text,
+            question_for_run=question_for_run,
         )
+        pending_state = session.pending_send
+        assert pending_state is not None
+        background_tasks.add_task(
+            self._messenger.post_card,
+            chat_id,
+            self._context_preview_card_payload(session),
+        )
+        return FeishuCallbackResult(status="accepted")
+
+    def _handle_context_direct_answer(
+        self,
+        *,
+        value: dict[str, Any],
+        tenant_key: str,
+        chat_id: str,
+        operator: dict[str, Any],
+        context: dict[str, Any],
+        background_tasks: BackgroundTasks,
+    ) -> FeishuCallbackResult:
+        """Confirm preview: assemble Hermes from pending-send only."""
+
+        session_id_raw = str(value.get("session_id") or "").strip()
+        operator_open_id = str(operator.get("open_id") or "").strip()
+        if not session_id_raw or not operator_open_id or not chat_id or not tenant_key:
+            return FeishuCallbackResult(status="ignored")
+        try:
+            session_id = UUID(session_id_raw)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="invalid session_id") from None
+
+        session = self._conversation.store.get(session_id)
+        if session is None or session.pending_send is None:
+            raise HTTPException(
+                status_code=409,
+                detail="pending_send missing; @ again to refresh preview",
+            )
+        if session.write_stopped:
+            raise HTTPException(
+                status_code=409,
+                detail="session write_stopped; switch to the active branch",
+            )
+        pending_state = session.pending_send
+        question = pending_state.question_for_run or pending_state.question
+        if not question.strip():
+            return FeishuCallbackResult(status="ignored")
+
+        chat_type = str(context.get("chat_type") or "group")
+        if chat_type not in {"p2p", "group"}:
+            chat_type = "group"
+        try:
+            run_context: FeishuRunContext = self._identity_mapper.resolve(
+                tenant_key=tenant_key,
+                chat_id=chat_id,
+                user_id=operator_open_id,
+                chat_type=chat_type,  # type: ignore[arg-type]
+            )
+        except PermissionError as exc:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+
+        message_access = self._resolve_message_access(run_context)
+        session, _runtime_access = self._attach_runtime_access(session, message_access)
+        try:
+            pending = self._prepare_hermes_execution(
+                project=run_context.project,
+                actor=run_context.actor,
+                scope=message_access.effective_scope,
+                question=question,
+                entry_mode="feishu_context_preview_direct",
+                session=session,
+                use_pending_send=True,
+            )
+        except PermissionError as exc:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
         background_tasks.add_task(
             self._execute_prepared_hermes_tool_loop_and_reply,
             pending,
             chat_id,
             session.session_id,
-            text,
-            audit_rewrite,
+            pending_state.question or question,
+            None if question == pending_state.question else question,
         )
         return FeishuCallbackResult(status="accepted", run_id=str(pending.run.id))
+
+    def _handle_context_exclude_item(
+        self,
+        *,
+        value: dict[str, Any],
+        chat_id: str,
+        background_tasks: BackgroundTasks,
+    ) -> FeishuCallbackResult:
+        """Toggle staged exclude on edit card, or immediately drop on preview."""
+
+        session_id_raw = str(value.get("session_id") or "").strip()
+        item_id = str(value.get("item_id") or "").strip()
+        return_to = str(value.get("return_to") or "preview").strip() or "preview"
+        if not session_id_raw or not item_id or not chat_id:
+            return FeishuCallbackResult(status="ignored")
+        try:
+            session_id = UUID(session_id_raw)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="invalid session_id") from None
+        session = self._conversation.store.get(session_id)
+        if session is None or session.pending_send is None:
+            raise HTTPException(
+                status_code=409,
+                detail="pending_send missing; @ again to refresh preview",
+            )
+        if return_to == "edit":
+            session = self._conversation.toggle_context_edit_exclude(session, item_id)
+            staged = self._conversation.get_context_edit_stage(session)
+            selected = item_id in staged["exclude_ids"]
+            return FeishuCallbackResult(
+                status="accepted",
+                card=self._context_edit_card_payload(session),
+                toast_type="info",
+                toast_content="已勾选去掉" if selected else "已取消去掉",
+            )
+        session = self._conversation.exclude_from_pending_send(session, (item_id,))
+        return FeishuCallbackResult(
+            status="accepted",
+            card=self._context_preview_card_payload(session),
+            toast_type="info",
+            toast_content="已从本次上下文去掉",
+        )
+
+    def _handle_context_edit(
+        self,
+        *,
+        value: dict[str, Any],
+        chat_id: str,
+        background_tasks: BackgroundTasks,
+    ) -> FeishuCallbackResult:
+        """Open edit card: clear prior stage, show toggleable selections."""
+
+        session = self._require_pending_session(value)
+        if session is None or not chat_id:
+            return FeishuCallbackResult(status="ignored")
+        session = self._conversation.clear_context_edit_stage(session)
+        return FeishuCallbackResult(
+            status="accepted",
+            card=self._context_edit_card_payload(session),
+        )
+
+    def _handle_context_more_history(
+        self,
+        *,
+        value: dict[str, Any],
+        chat_id: str,
+        background_tasks: BackgroundTasks,
+    ) -> FeishuCallbackResult:
+        """Paginated session + group history; date_window reused when set (S07/S08)."""
+
+        session = self._require_pending_session(value)
+        if session is None or not chat_id:
+            return FeishuCallbackResult(status="ignored")
+        offset, group_page_token, group_page_stack, group_item_offset = (
+            self._parse_more_history_paging(value)
+        )
+        self._post_context_more_history_card(
+            session,
+            chat_id,
+            background_tasks,
+            offset=offset,
+            group_page_token=group_page_token,
+            group_page_stack=group_page_stack,
+            group_item_offset=group_item_offset,
+        )
+        return FeishuCallbackResult(status="accepted")
+
+    def _handle_context_confirm_edit(
+        self,
+        *,
+        value: dict[str, Any],
+        chat_id: str,
+        background_tasks: BackgroundTasks,
+    ) -> FeishuCallbackResult:
+        """Apply staged edit toggles, then replace card with updated preview."""
+
+        session = self._require_pending_session(value)
+        if session is None or not chat_id:
+            return FeishuCallbackResult(status="ignored")
+        session = self._conversation.apply_context_edit_stage(session)
+        return FeishuCallbackResult(
+            status="accepted",
+            card=self._context_preview_card_payload(session),
+            toast_type="success",
+            toast_content="已更新本次上下文",
+        )
+
+    def _handle_context_back_preview(
+        self,
+        *,
+        value: dict[str, Any],
+        chat_id: str,
+        background_tasks: BackgroundTasks,
+    ) -> FeishuCallbackResult:
+        session = self._require_pending_session(value)
+        if session is None or not chat_id:
+            return FeishuCallbackResult(status="ignored")
+        session = self._conversation.clear_context_edit_stage(session)
+        return FeishuCallbackResult(
+            status="accepted",
+            card=self._context_preview_card_payload(session),
+            toast_type="info",
+            toast_content="已返回预览（未应用勾选）",
+        )
+
+    def _handle_context_include_citation(
+        self,
+        *,
+        value: dict[str, Any],
+        chat_id: str,
+        background_tasks: BackgroundTasks,
+    ) -> FeishuCallbackResult:
+        """Toggle staged join on edit card, or immediately join otherwise."""
+
+        session = self._require_pending_session(value)
+        citation_id = str(value.get("citation_id") or "").strip()
+        return_to = str(value.get("return_to") or "preview").strip() or "preview"
+        if session is None or not citation_id or not chat_id:
+            return FeishuCallbackResult(status="ignored")
+        if return_to == "edit":
+            session = self._conversation.toggle_context_edit_join(session, citation_id)
+            staged = self._conversation.get_context_edit_stage(session)
+            selected = citation_id in staged["join_citation_ids"]
+            return FeishuCallbackResult(
+                status="accepted",
+                card=self._context_edit_card_payload(session),
+                toast_type="info",
+                toast_content="已勾选加入" if selected else "已取消加入",
+            )
+        try:
+            session = self._conversation.fine_select_history(session, citation_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return FeishuCallbackResult(
+            status="accepted",
+            card=self._context_preview_card_payload(session),
+            toast_type="info",
+            toast_content="已加入引用",
+        )
+
+    def _handle_context_select_history(
+        self,
+        *,
+        value: dict[str, Any],
+        chat_id: str,
+        background_tasks: BackgroundTasks,
+    ) -> FeishuCallbackResult:
+        """Fine-select from「更多历史」→ citation stays on ledger, lands in pending."""
+
+        session = self._require_pending_session(value)
+        citation_id = str(value.get("citation_id") or "").strip()
+        if session is None or not citation_id or not chat_id:
+            return FeishuCallbackResult(status="ignored")
+        offset, group_page_token, group_page_stack, group_item_offset = (
+            self._parse_more_history_paging(value)
+        )
+        try:
+            session = self._conversation.fine_select_history(session, citation_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        # Keep more-history open for multi-select; preview only after 「返回预览」/「确定」.
+        self._post_context_more_history_card(
+            session,
+            chat_id,
+            background_tasks,
+            offset=offset,
+            group_page_token=group_page_token,
+            group_page_stack=group_page_stack,
+            group_item_offset=group_item_offset,
+        )
+        return FeishuCallbackResult(status="accepted")
+
+    def _handle_context_select_group_message(
+        self,
+        *,
+        value: dict[str, Any],
+        chat_id: str,
+        background_tasks: BackgroundTasks,
+    ) -> FeishuCallbackResult:
+        """Fine-select a Feishu group message → citation + pending + refresh preview."""
+
+        session = self._require_pending_session(value)
+        message_id = str(value.get("message_id") or "").strip()
+        if session is None or not message_id or not chat_id:
+            return FeishuCallbackResult(status="ignored")
+        offset, group_page_token, group_page_stack, group_item_offset = (
+            self._parse_more_history_paging(value)
+        )
+        occurred_raw = str(value.get("occurred_at") or "").strip()
+        occurred_at = None
+        if occurred_raw:
+            try:
+                occurred_at = datetime.fromisoformat(occurred_raw.replace("Z", "+00:00"))
+            except ValueError:
+                occurred_at = None
+        try:
+            session = self._conversation.fine_select_group_message(
+                session,
+                message_id=message_id,
+                occurred_at=occurred_at,
+                short_title=str(value.get("short_title") or "").strip() or None,
+                body_text=str(value.get("body_text") or "") or None,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        # Multi-select on this card only; user returns via 「返回预览」for the updated preview.
+        self._post_context_more_history_card(
+            session,
+            chat_id,
+            background_tasks,
+            offset=offset,
+            group_page_token=group_page_token,
+            group_page_stack=group_page_stack,
+            group_item_offset=group_item_offset,
+        )
+        return FeishuCallbackResult(status="accepted")
+
+    def _handle_context_restore_item(
+        self,
+        *,
+        value: dict[str, Any],
+        chat_id: str,
+        background_tasks: BackgroundTasks,
+    ) -> FeishuCallbackResult:
+        """Toggle staged restore on edit card, or immediately restore on preview."""
+
+        session = self._require_pending_session(value)
+        item_id = str(value.get("item_id") or "").strip()
+        return_to = str(value.get("return_to") or "edit").strip() or "edit"
+        if session is None or not item_id or not chat_id:
+            return FeishuCallbackResult(status="ignored")
+        if return_to == "edit":
+            session = self._conversation.toggle_context_edit_restore(session, item_id)
+            staged = self._conversation.get_context_edit_stage(session)
+            selected = item_id in staged["restore_ids"]
+            return FeishuCallbackResult(
+                status="accepted",
+                card=self._context_edit_card_payload(session),
+                toast_type="info",
+                toast_content="已勾选恢复" if selected else "已取消恢复",
+            )
+        session = self._conversation.restore_to_pending_send(session, (item_id,))
+        return FeishuCallbackResult(
+            status="accepted",
+            card=self._context_preview_card_payload(session),
+            toast_type="info",
+            toast_content="已恢复到本次上下文",
+        )
+
+    def _handle_context_fork_branch(
+        self,
+        *,
+        value: dict[str, Any],
+        chat_id: str,
+        background_tasks: BackgroundTasks,
+    ) -> FeishuCallbackResult:
+        """新建分支：复制当前线状态，原线停写，绑定切到新线；原卡片原地刷新。"""
+
+        session = self._require_pending_session(value)
+        if session is None or not chat_id:
+            return FeishuCallbackResult(status="ignored")
+        try:
+            child = self._conversation.fork_session(session)
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        return FeishuCallbackResult(
+            status="accepted",
+            card=self._context_preview_card_payload(child),
+            toast_type="success",
+            toast_content=f"已新建分支 {child.branch_name}",
+        )
+
+    def _handle_context_switch_branch(
+        self,
+        *,
+        value: dict[str, Any],
+        chat_id: str,
+        background_tasks: BackgroundTasks,
+    ) -> FeishuCallbackResult:
+        """切换已有分支：发送只写入选中线；原卡片原地刷新。"""
+
+        session = self._require_pending_session(value, require_writable=False)
+        if session is None or not chat_id:
+            return FeishuCallbackResult(status="ignored")
+        target_raw = str(value.get("target_session_id") or "").strip()
+        if not target_raw:
+            return FeishuCallbackResult(status="ignored")
+        try:
+            target_id = UUID(target_raw)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="invalid target_session_id") from None
+        try:
+            target = self._conversation.switch_session(session, target_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if target.pending_send is None:
+            # Stale line without preview: rebuild from its own pool using last question if any.
+            question = ""
+            target = self._conversation.refresh_pending_send(target, question=question or "（切换分支）")
+        return FeishuCallbackResult(
+            status="accepted",
+            card=self._context_preview_card_payload(target),
+            toast_type="info",
+            toast_content=f"已切换到 {target.branch_name}",
+        )
+
+    def _handle_context_delete_branch(
+        self,
+        *,
+        value: dict[str, Any],
+        chat_id: str,
+        background_tasks: BackgroundTasks,
+    ) -> FeishuCallbackResult:
+        """删除指定分支（默认当前线），绑定切到剩余兄弟线；原卡片原地刷新。"""
+
+        session = self._require_pending_session(value, require_writable=False)
+        if session is None or not chat_id:
+            return FeishuCallbackResult(status="ignored")
+        target_raw = str(value.get("target_session_id") or session.session_id).strip()
+        try:
+            target_id = UUID(target_raw)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="invalid target_session_id") from None
+        deleted = self._conversation.store.get(target_id)
+        deleted_name = deleted.branch_name if deleted is not None else "?"
+        try:
+            survivor = self._conversation.delete_session(session, target_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        if survivor.pending_send is None:
+            survivor = self._conversation.refresh_pending_send(
+                survivor, question="（删除分支后）"
+            )
+        return FeishuCallbackResult(
+            status="accepted",
+            card=self._context_preview_card_payload(survivor),
+            toast_type="info",
+            toast_content=f"已删除分支 {deleted_name}，当前 {survivor.branch_name}",
+        )
+
+    def _handle_context_open_date_window(
+        self,
+        *,
+        value: dict[str, Any],
+        chat_id: str,
+        background_tasks: BackgroundTasks,
+    ) -> FeishuCallbackResult:
+        session = self._require_pending_session(value)
+        if session is None or not chat_id:
+            return FeishuCallbackResult(status="ignored")
+        self._post_context_date_window_card(session, chat_id, background_tasks)
+        return FeishuCallbackResult(status="accepted")
+
+    def _handle_context_set_date_bound(
+        self,
+        *,
+        value: dict[str, Any],
+        bound: str,
+        option: str,
+        chat_id: str,
+        background_tasks: BackgroundTasks,
+    ) -> FeishuCallbackResult:
+        """Persist one bound silently — do not post a new card (stay on coarse filter)."""
+
+        session = self._require_pending_session(value)
+        if session is None or not chat_id:
+            return FeishuCallbackResult(status="ignored")
+        parsed = _parse_feishu_date_option(option, end=(bound == "end"))
+        if parsed is None:
+            raise HTTPException(status_code=400, detail="invalid date_picker option")
+        current = session.date_window
+        start = current.start if current is not None else None
+        end = current.end if current is not None else None
+        if bound == "start":
+            start = parsed
+        else:
+            end = parsed
+        if start is None and end is None:
+            raise HTTPException(status_code=400, detail="date window requires a bound")
+        if start is not None and end is not None and start > end:
+            raise HTTPException(status_code=400, detail="start must not be later than end")
+        try:
+            self._conversation.set_date_window(session, start=start, end=end)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        # Intentionally no post_card: date_picker stays on the same coarse-filter
+        # card so the user can set both bounds, then tap 「确定」.
+        return FeishuCallbackResult(status="accepted")
+
+    def _handle_context_confirm_date_window(
+        self,
+        *,
+        value: dict[str, Any],
+        chat_id: str,
+        background_tasks: BackgroundTasks,
+    ) -> FeishuCallbackResult:
+        """After coarse filter, open fine-select only (no extra preview card)."""
+
+        session = self._require_pending_session(value)
+        if session is None or not chat_id:
+            return FeishuCallbackResult(status="ignored")
+        if session.pending_send is not None:
+            session = self._conversation.refresh_pending_send(
+                session,
+                question=session.pending_send.question,
+                question_for_run=session.pending_send.question_for_run,
+                date_window=session.date_window,
+            )
+        self._post_context_more_history_card(
+            session,
+            chat_id,
+            background_tasks,
+            offset=0,
+            group_page_token=None,
+        )
+        return FeishuCallbackResult(status="accepted")
+
+    def _handle_context_clear_date_window(
+        self,
+        *,
+        value: dict[str, Any],
+        chat_id: str,
+        background_tasks: BackgroundTasks,
+    ) -> FeishuCallbackResult:
+        session = self._require_pending_session(value)
+        if session is None or not chat_id:
+            return FeishuCallbackResult(status="ignored")
+        session = self._conversation.clear_date_window(session)
+        return_to = str(value.get("return_to") or "preview").strip()
+        if return_to == "date_window":
+            self._post_context_date_window_card(session, chat_id, background_tasks)
+            return FeishuCallbackResult(status="accepted")
+        self._post_context_preview_card(session, chat_id, background_tasks)
+        return FeishuCallbackResult(status="accepted")
+
+    def _require_pending_session(
+        self,
+        value: dict[str, Any],
+        *,
+        require_writable: bool = True,
+    ) -> ConversationSession | None:
+        session_id_raw = str(value.get("session_id") or "").strip()
+        if not session_id_raw:
+            return None
+        try:
+            session_id = UUID(session_id_raw)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="invalid session_id") from None
+        session = self._conversation.store.get(session_id)
+        if session is None or session.pending_send is None:
+            raise HTTPException(
+                status_code=409,
+                detail="pending_send missing; @ again to refresh preview",
+            )
+        if require_writable and session.write_stopped:
+            raise HTTPException(
+                status_code=409,
+                detail="session write_stopped; switch to the active branch",
+            )
+        return session
+
+    def _joinable_citations(self, session: ConversationSession) -> tuple:
+        pending_ids: set[str] = set()
+        if session.pending_send is not None:
+            pending_ids = {
+                item.citation_id
+                for item in session.pending_send.items
+                if item.citation_id
+            }
+        return tuple(
+            entry
+            for entry in session.citations
+            if entry.citation_id not in pending_ids
+        )
+
+    def _restorable_defaults(self, session: ConversationSession) -> tuple:
+        from project_lens.domain.conversation import pending_item_from_default
+
+        pending_ids = {
+            item.item_id for item in (session.pending_send.items if session.pending_send else ())
+        }
+        restored: list = []
+        for default in self._conversation.list_default_context_items(
+            session, date_window=session.date_window
+        ):
+            item = pending_item_from_default(default)
+            if item.item_id not in pending_ids:
+                restored.append(item)
+        return tuple(restored)
+
+    def _post_context_preview_card(
+        self,
+        session: ConversationSession,
+        chat_id: str,
+        background_tasks: BackgroundTasks,
+    ) -> None:
+        pending_state = session.pending_send
+        assert pending_state is not None
+        background_tasks.add_task(
+            self._messenger.post_card,
+            chat_id,
+            self._context_preview_card_payload(session),
+        )
+
+    def _context_preview_card_payload(
+        self,
+        session: ConversationSession,
+    ) -> dict[str, object]:
+        pending_state = session.pending_send
+        assert pending_state is not None
+        branches = self._conversation.list_branches(session)
+        return render_context_preview_card(
+            question=pending_state.question,
+            session_id=session.session_id,
+            items=pending_state.items,
+            token_estimate=pending_state.token_estimate,
+            branches=branches,
+            active_branch_name=session.branch_name,
+            date_window_label=self._conversation.date_window_label(session),
+        )
+
+    def _post_context_date_window_card(
+        self,
+        session: ConversationSession,
+        chat_id: str,
+        background_tasks: BackgroundTasks,
+    ) -> None:
+        pending_state = session.pending_send
+        assert pending_state is not None
+        background_tasks.add_task(
+            self._messenger.post_card,
+            chat_id,
+            render_context_date_window_card(
+                question=pending_state.question,
+                session_id=session.session_id,
+                date_window_label=self._conversation.date_window_label(session),
+                token_estimate=pending_state.token_estimate,
+            ),
+        )
+
+    def _post_context_edit_card(
+        self,
+        session: ConversationSession,
+        chat_id: str,
+        background_tasks: BackgroundTasks,
+    ) -> None:
+        background_tasks.add_task(
+            self._messenger.post_card,
+            chat_id,
+            self._context_edit_card_payload(session),
+        )
+
+    def _context_edit_card_payload(
+        self,
+        session: ConversationSession,
+    ) -> dict[str, object]:
+        pending_state = session.pending_send
+        assert pending_state is not None
+        stage = self._conversation.get_context_edit_stage(session)
+        return render_context_edit_card(
+            question=pending_state.question,
+            session_id=session.session_id,
+            items=pending_state.items,
+            token_estimate=pending_state.token_estimate,
+            joinable_citations=self._joinable_citations(session),
+            restorable_defaults=self._restorable_defaults(session),
+            staged_exclude_ids=stage["exclude_ids"],
+            staged_restore_ids=stage["restore_ids"],
+            staged_join_citation_ids=stage["join_citation_ids"],
+        )
+
+    def _post_context_more_history_card(
+        self,
+        session: ConversationSession,
+        chat_id: str,
+        background_tasks: BackgroundTasks,
+        *,
+        offset: int = 0,
+        group_page_token: str | None = None,
+        group_page_stack: tuple[str, ...] = (),
+        group_item_offset: int = 0,
+    ) -> None:
+        from project_lens.domain.conversation import HISTORY_CANDIDATE_PAGE_SIZE
+
+        pending_state = session.pending_send
+        assert pending_state is not None
+        page, total = self._conversation.list_history_candidates(
+            session, offset=offset, page_size=HISTORY_CANDIDATE_PAGE_SIZE
+        )
+        group = self._conversation.list_group_history(
+            session,
+            page_size=HISTORY_CANDIDATE_PAGE_SIZE,
+            page_token=group_page_token,
+        )
+        background_tasks.add_task(
+            self._messenger.post_card,
+            chat_id,
+            render_context_more_history_card(
+                question=pending_state.question,
+                session_id=session.session_id,
+                candidates=page,
+                token_estimate=pending_state.token_estimate,
+                offset=offset,
+                total=total,
+                page_size=HISTORY_CANDIDATE_PAGE_SIZE,
+                group_candidates=group.candidates,
+                group_available=group.available,
+                group_unavailable_reason=group.unavailable_reason,
+                group_page_token=group_page_token,
+                group_page_stack=group_page_stack,
+                group_item_offset=group_item_offset,
+                group_has_more=group.has_more,
+                group_next_page_token=group.next_page_token,
+            ),
+        )
+
+    def _parse_more_history_paging(
+        self, value: dict[str, Any]
+    ) -> tuple[int, str | None, tuple[str, ...], int]:
+        """Read session offset + group cursor stack from a card action value."""
+
+        try:
+            offset = int(str(value.get("offset") or "0"))
+        except ValueError:
+            offset = 0
+        try:
+            group_item_offset = int(str(value.get("group_item_offset") or "0"))
+        except ValueError:
+            group_item_offset = 0
+        group_page_token = str(value.get("group_page_token") or "").strip() or None
+        group_page_stack = decode_group_page_stack(value.get("group_page_stack"))
+        return max(0, offset), group_page_token, group_page_stack, max(0, group_item_offset)
 
     def _prepare_hermes_execution(
         self,
@@ -764,17 +1640,11 @@ class FeishuEventService:
         question: str,
         entry_mode: str,
         session: ConversationSession | None,
+        use_pending_send: bool = True,
     ) -> PendingHermesExecution:
         runtime = self._hermes_runtime
         if runtime is None:
             raise RuntimeError("Hermes runtime is not configured")
-        handoff = None
-        if (
-            session is not None
-            and session.session_state is not None
-            and session.session_state.rotation_pending
-        ):
-            handoff, session = self._conversation.build_handoff(session)
         memories: tuple[ProjectMemory, ...] = ()
         if session is not None and self._memory_store is not None:
             memories = authorize_memory_candidates(
@@ -786,7 +1656,6 @@ class FeishuEventService:
             session=session,
             memories=memories,
             memory_summary=build_memory_summary(memories),
-            handoff=handoff,
             runtime_access={
                 "tenant_id": scope.project.tenant_id,
                 "project_id": scope.project.project_id,
@@ -796,6 +1665,7 @@ class FeishuEventService:
                 "visibility_level": scope.visibility_level.value,
                 "policy_version": scope.policy_version,
             },
+            use_pending_send=use_pending_send if session is not None else False,
         )
         return runtime.prepare(
             project=project,
@@ -814,39 +1684,113 @@ class FeishuEventService:
         raw_text: str | None = None,
         followup_rewrite: str | None = None,
     ) -> None:
+        """Run Hermes, post the IM reply, then best-effort persist the turn.
+
+        Feishu delivery must not depend on session bookkeeping. Previously
+        ``record_turn`` → ``attach_hermes_tool_loop`` ran before ``post_text``;
+        if attach/memory side-effects raised, the preview already showed
+        ``回复：…`` while the group never got a bot message.
+        """
+
         runtime = self._hermes_runtime
         if runtime is None:
             raise RuntimeError("Hermes runtime is not configured")
-        execution = await runtime.execute_prepared(pending)
-        executed = execution.run
-        session = self._conversation.store.get(session_id) if session_id is not None else None
-        if session is not None:
-            session = self._conversation.record_turn(
-                session,
-                user_id=pending.actor.actor_id,
-                text=raw_text or pending.question,
-                rewritten_question=followup_rewrite,
-                run_id=executed.id,
-                answer=execution.answer,
+        try:
+            execution = await runtime.execute_prepared(pending)
+        except Exception as exc:  # noqa: BLE001 - background task must still notify the chat
+            logger.exception(
+                "hermes execute_prepared failed chat_id=%s run_id=%s",
+                chat_id,
+                pending.run.id,
             )
+            from project_lens.integrations.feishu.hermes_errors import (
+                format_unexpected_for_feishu,
+            )
+
+            await self._safe_post_text(
+                chat_id,
+                format_unexpected_for_feishu(exc, run_id=pending.run.id),
+            )
+            return
+
+        # Deliver to Feishu first — do not let session writes skip the IM reply.
+        try:
+            await self._render_hermes_execution(
+                chat_id=chat_id,
+                execution=execution,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.exception(
+                "feishu hermes reply failed chat_id=%s run_id=%s",
+                chat_id,
+                execution.run.id,
+            )
+            from project_lens.integrations.feishu.hermes_errors import (
+                format_delivery_failure_for_feishu,
+            )
+
+            await self._safe_post_text(
+                chat_id,
+                format_delivery_failure_for_feishu(exc, run_id=execution.run.id),
+            )
+
+        try:
+            self._persist_hermes_turn(
+                pending=pending,
+                execution=execution,
+                session_id=session_id,
+                raw_text=raw_text,
+                followup_rewrite=followup_rewrite,
+            )
+        except Exception:  # noqa: BLE001
+            logger.exception(
+                "persist hermes turn failed after feishu reply chat_id=%s run_id=%s",
+                chat_id,
+                execution.run.id,
+            )
+
+    def _persist_hermes_turn(
+        self,
+        *,
+        pending: PendingHermesExecution,
+        execution: Any,
+        session_id: UUID | None,
+        raw_text: str | None,
+        followup_rewrite: str | None,
+    ) -> None:
+        if session_id is None:
+            return
+        session = self._conversation.store.get(session_id)
+        if session is None:
+            return
+        session = self._conversation.record_turn(
+            session,
+            user_id=pending.actor.actor_id,
+            text=raw_text or pending.question,
+            rewritten_question=followup_rewrite,
+            run_id=execution.run.id,
+            answer=execution.answer,
+        )
+        try:
             session = self._conversation.attach_hermes_tool_loop(
                 session, hermes_loop_scratchpad_entry(execution.envelope)
             )
             audit_ref = execution.envelope.get("audit_ref")
-            context_budget = (
-                audit_ref.get("context_budget")
-                if isinstance(audit_ref, dict)
-                else None
-            )
-            if (
-                isinstance(context_budget, dict)
-                and context_budget.get("rotation_recommended") is True
-            ):
+            context_budget = audit_ref.get("context_budget") if isinstance(audit_ref, dict) else None
+            if isinstance(context_budget, dict) and context_budget.get("rotation_recommended") is True:
                 self._conversation.mark_rotation_pending(session, pending=True)
-        await self._render_hermes_execution(
-            chat_id=chat_id,
-            execution=execution,
-        )
+        except Exception:  # noqa: BLE001 - audit pointer must not undo a delivered reply
+            logger.exception(
+                "attach_hermes_tool_loop failed session_id=%s run_id=%s",
+                session_id,
+                execution.run.id,
+            )
+
+    async def _safe_post_text(self, chat_id: str, text: str) -> None:
+        try:
+            await self._messenger.post_text(chat_id, text)
+        except Exception:  # noqa: BLE001
+            logger.exception("feishu post_text failed chat_id=%s", chat_id)
 
     async def _render_hermes_execution(
         self,
@@ -856,20 +1800,32 @@ class FeishuEventService:
     ) -> None:
         executed = execution.run
         if not execution.ok:
-            await self._messenger.post_card(chat_id, render_failure_card(executed))
+            await self._messenger.post_text(chat_id, format_failure_as_text(executed))
+            logger.info(
+                "feishu hermes failure reply posted chat_id=%s run_id=%s",
+                chat_id,
+                executed.id,
+            )
             return
         if executed.answer is None:
-            await self._messenger.post_card(chat_id, render_failure_card(executed))
+            await self._messenger.post_text(chat_id, format_failure_as_text(executed))
+            logger.info(
+                "feishu hermes empty-answer reply posted chat_id=%s run_id=%s",
+                chat_id,
+                executed.id,
+            )
             return
         memory_proposal = None
         if self._memory_gateway is not None:
-            candidate = propose_memory_from_answer(
-                executed.answer,
-                proposed_by=executed.user_id,
-            )
-            if candidate is not None:
-                try:
-                    memory_proposal = self._memory_gateway.create_memory_proposal(candidate)
+            try:
+                candidate = propose_memory_from_answer(
+                    executed.answer,
+                    proposed_by=executed.user_id,
+                )
+                if candidate is not None:
+                    memory_proposal = self._memory_gateway.create_memory_proposal(
+                        candidate
+                    )
                     self._lifecycle.emit(
                         LifecycleEventType.MEMORY_PROPOSED,
                         run_id=executed.id,
@@ -892,15 +1848,23 @@ class FeishuEventService:
                             "allowed_approvers": list(memory_proposal.allowed_approvers),
                         },
                     )
-                except ValueError:
-                    memory_proposal = None
-        await self._messenger.post_card(
+            except Exception:  # noqa: BLE001 - never block the group reply
+                logger.exception(
+                    "memory proposal after hermes failed run_id=%s",
+                    executed.id,
+                )
+                memory_proposal = None
+        body = format_answer_as_text(
+            executed,
+            executed.answer,
+            memory_proposal=memory_proposal,
+        )
+        await self._messenger.post_text(chat_id, body)
+        logger.info(
+            "feishu hermes answer posted chat_id=%s run_id=%s chars=%d",
             chat_id,
-            render_answer_card(
-                executed,
-                executed.answer,
-                memory_proposal=memory_proposal,
-            ),
+            executed.id,
+            len(body),
         )
 
     def _try_role_view_switch(
@@ -949,9 +1913,9 @@ class FeishuEventService:
         run = self._run_service.get(run_id)
         if run is None or run.answer is None:
             return
-        await self._messenger.post_card(
+        await self._messenger.post_text(
             chat_id,
-            render_answer_card(run, run.answer, audience=audience),
+            format_answer_as_text(run, run.answer, audience=audience),
         )
 
     async def _reply_collaboration_gate(
@@ -960,16 +1924,12 @@ class FeishuEventService:
         chat_id: str,
         user_text: str,
     ) -> None:
-        await self._messenger.post_card(
-            chat_id,
-            render_collaboration_gate_card(user_text=user_text, project=project),
-        )
+        card = render_collaboration_gate_card(user_text=user_text, project=project)
+        await self._messenger.post_text(chat_id, card_payload_as_text(card))
 
     async def _reply_about_bot(self, chat_id: str, user_text: str) -> None:
-        await self._messenger.post_card(
-            chat_id,
-            render_about_bot_card(user_text=user_text),
-        )
+        card = render_about_bot_card(user_text=user_text)
+        await self._messenger.post_text(chat_id, card_payload_as_text(card))
 
     async def _post_memory_decision(
         self,
@@ -977,6 +1937,7 @@ class FeishuEventService:
         proposal: MemoryProposal,
         memory: ProjectMemory | None,
     ) -> None:
+        # Memory approve/reject still needs interactive buttons.
         await self._messenger.post_card(
             chat_id,
             render_memory_decision_card(proposal, memory=memory),
@@ -994,11 +1955,33 @@ class FeishuEventService:
             logger.exception("feishu doc sync status card failed")
             read_error = f"读取同步状态失败：{exc}"
             statuses = ()
-        await self._messenger.post_card(
-            chat_id,
-            render_feishu_doc_sync_status_card(
-                project,
-                statuses,
-                read_error=read_error,
-            ),
+        card = render_feishu_doc_sync_status_card(
+            project,
+            statuses,
+            read_error=read_error,
         )
+        await self._messenger.post_text(chat_id, card_payload_as_text(card))
+
+
+def _parse_feishu_date_option(option: str, *, end: bool) -> datetime | None:
+    """Parse Feishu date_picker option (``YYYY-MM-DD`` or ``YYYY-MM-DD +0800``)."""
+
+    raw = (option or "").strip()
+    if not raw:
+        return None
+    # Drop trailing timezone offset like "+0800" / "Asia/Shanghai" when present.
+    token = raw.split()[0]
+    try:
+        if "T" in token or " " in raw and ":" in token:
+            parsed = datetime.fromisoformat(token.replace("Z", "+00:00"))
+        else:
+            parsed = datetime.fromisoformat(token)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    if end and len(token) <= 10:
+        parsed = parsed.replace(hour=23, minute=59, second=59, microsecond=999999)
+    elif not end and len(token) <= 10:
+        parsed = parsed.replace(hour=0, minute=0, second=0, microsecond=0)
+    return parsed.astimezone(timezone.utc)

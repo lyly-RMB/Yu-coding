@@ -85,6 +85,69 @@ def answer_view_title(view: AnswerView) -> str:
     return _VIEW_TITLES.get(view, "ProjectLens 项目回答")
 
 
+DEGRADED_ANSWER_TITLE = "ProjectLens 降级回复（非 Hermes 完整结论）"
+
+_DEGRADED_SUMMARY_MARKERS = (
+    "当前资料不足以形成带引用结论",
+    "调查完成，暂无结论",
+    "Hermes 未返回最终答案",
+    "Hermes 返回了未结构化文本",
+)
+_DEGRADED_UNKNOWN_MARKERS = (
+    "调查结束，但没有形成可展示的结论",
+    "Hermes 未返回最终答案",
+    "尚未完成 Evidence 引用校验",
+)
+
+
+def has_cited_fact(answer: ProjectAnswer) -> bool:
+    return any(
+        claim.type == ClaimType.FACT and claim.evidence_ids for claim in answer.claims
+    )
+
+
+def is_degraded_answer(answer: ProjectAnswer) -> bool:
+    """True when the posted body is a system fallback, not a Hermes verified conclusion.
+
+    Covers verifier stock lines, empty-draft fallbacks, and the insufficient-evidence
+    card path — even when they still render under a normal answer title.
+
+    Partial unknowns (owner / README / changelog gaps) must not degrade an answer
+    that already has citation-checked FACT claims.
+    """
+
+    if has_cited_fact(answer):
+        return False
+    if is_evidence_insufficient(answer):
+        return True
+    summary = f"{answer.business_summary} {answer.conclusion}"
+    if any(marker in summary for marker in _DEGRADED_SUMMARY_MARKERS):
+        return True
+    unknowns_blob = " ".join(answer.unknowns)
+    return any(marker in unknowns_blob for marker in _DEGRADED_UNKNOWN_MARKERS)
+
+
+def degraded_answer_banner(
+    answer: ProjectAnswer | None = None,
+    *,
+    run_id: object | None = None,
+) -> str:
+    if answer is None:
+        return (
+            "**【降级标注】本条不是 Hermes 完整项目回答**\n"
+            "原因：没有通过引用校验的可展示结论，或当前资料不足。"
+            "正文为系统兜底文案，请勿当作已核实的项目结论。"
+        )
+    from project_lens.integrations.feishu.hermes_errors import (
+        format_degraded_banner_for_feishu,
+    )
+
+    return (
+        f"**{format_degraded_banner_for_feishu(answer, run_id=run_id)}**\n"
+        "正文为系统兜底文案，请勿当作已核实的项目结论。"
+    )
+
+
 def select_answer_view(run: AgentRun, answer: ProjectAnswer) -> AnswerView:
     """Choose user-facing view from question + answer. Skill stays internal."""
 
@@ -177,10 +240,7 @@ def is_evidence_insufficient(answer: ProjectAnswer) -> bool:
 
     if answer.evidence:
         # Investigation may have tool evidence but still no citable facts.
-        has_cited_fact = any(
-            claim.type == ClaimType.FACT and claim.evidence_ids for claim in answer.claims
-        )
-        if has_cited_fact:
+        if has_cited_fact(answer):
             return False
         if answer.confidence > 0.2 and (answer.business_summary or "").strip():
             # Weak but present summary — still show normal layout unless unknowns
@@ -190,9 +250,7 @@ def is_evidence_insufficient(answer: ProjectAnswer) -> bool:
         if _unknowns_say_search_failed(answer):
             return True
         return False
-    if any(
-        claim.type == ClaimType.FACT and claim.evidence_ids for claim in answer.claims
-    ):
+    if has_cited_fact(answer):
         return False
     # Gap reports and follow-up/role views still have useful summaries or unknowns.
     if answer.unknowns and answer.confidence >= 0.2:

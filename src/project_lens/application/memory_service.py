@@ -58,7 +58,11 @@ def propose_memory_from_answer(
     )
     if fact is None:
         return None
-    memory_type = infer_memory_type(fact.text, skill=answer.skill)
+    # Hermes may emit a long answer_markdown as one FACT; MemoryProposal caps at 2k.
+    claim_text = fact.text.strip()[:2_000]
+    if not claim_text:
+        return None
+    memory_type = infer_memory_type(claim_text, skill=answer.skill)
     resolved_reason = reason or (
         f"已验证 FACT（skill={answer.skill or 'unknown'}），"
         f"建议沉淀为 {memory_type.value}；人工确认前不写入正式 ProjectMemory。"
@@ -66,7 +70,7 @@ def propose_memory_from_answer(
     payload: dict[str, object] = {
         "project": answer.project,
         "proposed_by": proposed_by,
-        "claim_text": fact.text,
+        "claim_text": claim_text,
         "claim_type": fact.type,
         "memory_type": memory_type,
         "evidence_ids": fact.evidence_ids,

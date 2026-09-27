@@ -13,9 +13,12 @@ from uuid import UUID
 
 from project_lens.context.retrieval.exact import parse_traceback
 from project_lens.domain.conversation import (
+    COMPRESSED_ANSWER_TOKEN_BUDGET,
+    CompressedTurnRecord,
     ConversationSummary,
     ConversationTurn,
     PinnedIds,
+    clip_answer_and_evidence_to_budget,
 )
 from project_lens.domain.models import ProjectAnswer
 from project_lens.workflow.context_pack import TaskScratchpad
@@ -234,7 +237,12 @@ def compress_overflow_into_summary(
     summary: ConversationSummary,
     overflow: tuple[ConversationTurn, ...],
 ) -> ConversationSummary:
-    """L1 overflow -> L2 incremental merge with compression_cycle bump."""
+    """L1 overflow -> L2 incremental merge with compression_cycle bump.
+
+    Each overflowed turn becomes a ``CompressedTurnRecord``:
+    user question (uncapped by the 300-token budget) + answer summary + evidence ids
+    where answer+evidence share ``COMPRESSED_ANSWER_TOKEN_BUDGET``.
+    """
 
     if not overflow:
         return summary
@@ -243,7 +251,24 @@ def compress_overflow_into_summary(
     snippets: list[str] = []
     pinned = summary.pinned_ids
     run_ids: list[str] = []
+    new_records: list[CompressedTurnRecord] = []
     for turn in overflow:
+        user_question = turn.text
+        clipped_answer, clipped_evidence = clip_answer_and_evidence_to_budget(
+            turn.answer_summary or "",
+            turn.evidence_ids,
+            budget=COMPRESSED_ANSWER_TOKEN_BUDGET,
+        )
+        new_records.append(
+            CompressedTurnRecord(
+                user_question=user_question,
+                answer_summary=clipped_answer,
+                evidence_ids=clipped_evidence,
+                occurred_at=turn.created_at,
+                run_id=turn.run_id,
+                compression_cycle=cycle,
+            )
+        )
         snippet = (turn.rewritten_question or turn.text)[:120]
         snippets.append(snippet)
         if turn.run_id is not None:
@@ -252,7 +277,11 @@ def compress_overflow_into_summary(
             pinned,
             extract_pinned_from_text(turn.text),
             extract_pinned_from_text(turn.rewritten_question),
-            PinnedIds(run_ids=(str(turn.run_id),) if turn.run_id else ()),
+            extract_pinned_from_text(turn.answer_summary),
+            PinnedIds(
+                run_ids=(str(turn.run_id),) if turn.run_id else (),
+                evidence_ids=clipped_evidence,
+            ),
         )
         # Newest overflow traceback wins so 「怎么修」 survives compress+restart.
         for candidate in (turn.text, turn.rewritten_question):
@@ -273,6 +302,8 @@ def compress_overflow_into_summary(
             "active_topic": topic,
             "pinned_ids": pinned,
             "compression_cycle": cycle,
+            # Sliding window: keep only this cycle's records (do not append forever).
+            "compressed_turn_records": tuple(new_records),
             "session_intent": intent,
             "artifact_refs": _merge_artifact_refs(
                 summary.artifact_refs,

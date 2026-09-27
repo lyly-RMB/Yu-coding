@@ -9,12 +9,9 @@
 | 文档 | 用途 |
 |------|------|
 | [`projectlens-product-document.md`](projectlens-product-document.md) | 产品定义、目标/非目标、概念、MVP、路线图 |
-| [`projectlens-context-composer-product-design.md`](projectlens-context-composer-product-design.md) | 上下文管理器产品设计：按天隔离、历史选择、摘要、状态与完整性提醒 |
-| [`projectlens-context-composer-development-spec.md`](projectlens-context-composer-development-spec.md) | 上下文管理器开发规格：六项核心功能、数据模型、飞书卡片、快照、测试与分阶段实施 |
-| [`projectlens-context-compression-quick-development-plan.md`](projectlens-context-compression-quick-development-plan.md) | Hermes 上下文压缩快速落地：预算、裁剪、增量摘要、会话轮换、失败恢复与评测 |
-| [`feishu-test-quickstart.md`](feishu-test-quickstart.md) | **新人飞书测试**：要配什么、怎么配、怎么冒烟 |
-| [`../config/hermes/README.md`](../config/hermes/README.md) | Hermes `projectlens-safe` profile 拷贝说明 |
-| [`feishu-setup.md`](feishu-setup.md) | 飞书应用、事件回调、权限与联调检查 |
+| [`feishu-test-quickstart.md`](feishu-test-quickstart.md) | **新人飞书测试**：要配什么、怎么配、怎么冒烟（推荐 `scripts/start-projectlens-feishu-ws.ps1`） |
+| [`../config/hermes/README.md`](../config/hermes/README.md) | Hermes `projectlens-safe` profile（CLI/MCP 调试；群聊以 WS ingress 为准） |
+| [`feishu-setup.md`](feishu-setup.md) | 飞书应用、长连接 / HTTP 回调、权限与联调检查 |
 | [`pilot-launch-config.md`](pilot-launch-config.md) | `.env` 配置剖面（Stub / Safe Live / 测试群） |
 | [`projectspace-onboarding-guide.md`](projectspace-onboarding-guide.md) | 新项目 ProjectSpace 接入 |
 | [`projectlens-tool-envelope.md`](projectlens-tool-envelope.md) | 工具与回答信封契约（实现对照） |
@@ -24,6 +21,10 @@
 | [`projectlens-long-term-memory-development-spec.md`](projectlens-long-term-memory-development-spec.md) | 长期记忆具体开发规格、迁移、接口与测试 |
 | [`projectlens-knowledge-retrieval-vector-and-evaluation-plan.md`](projectlens-knowledge-retrieval-vector-and-evaluation-plan.md) | 知识库统一向量检索、混合召回、治理与评测门禁方案 |
 | [`projectlens-knowledge-retrieval-vector-development-plan.md`](projectlens-knowledge-retrieval-vector-development-plan.md) | 知识库向量检索分阶段开发、测试、验收、灰度与回滚计划 |
+| [`projectlens-context-manager-development-plan.md`](projectlens-context-manager-development-plan.md) | **上下文管理器**开发实施方案（飞书群 `@`：滑动窗口/引用、fork、预览即实发、GenAI trace 落盘） |
+| [`projectlens-context-composer-product-design.md`](projectlens-context-composer-product-design.md) | 上下文管理器产品设计：按天隔离、历史选择、摘要、状态与完整性提醒 |
+| [`projectlens-context-composer-development-spec.md`](projectlens-context-composer-development-spec.md) | 上下文管理器开发规格：六项核心功能、数据模型、飞书卡片、快照、测试与分阶段实施 |
+| [`projectlens-context-compression-quick-development-plan.md`](projectlens-context-compression-quick-development-plan.md) | Hermes 上下文压缩快速落地：预算、裁剪、增量摘要、会话轮换、失败恢复与评测 |
 
 ## 目标架构
 
@@ -43,8 +44,8 @@
 | [`projectlens-pilot-development-spec.md`](projectlens-pilot-development-spec.md) | 试点研发规格（历史） |
 | [`projectlens-change-log.md`](projectlens-change-log.md) | 分阶段变更记录 |
 | [`hermes-conversational-answer-experience-plan.md`](hermes-conversational-answer-experience-plan.md) | 对话体验规划 |
-| [`hermes-context-snapshot-development-plan.md`](hermes-context-snapshot-development-plan.md) | 上下文快照规划 |
-| [`projectlens-context-composer-development-plan.md`](projectlens-context-composer-development-plan.md) | Context Composer 规划 |
+| [`hermes-context-snapshot-development-plan.md`](hermes-context-snapshot-development-plan.md) | 上下文快照规划（**与现行「上下文管理器」冲突，勿当实现依据**；见代办清理） |
+| [`projectlens-context-composer-development-plan.md`](projectlens-context-composer-development-plan.md) | Context Composer 规划（**同上，以** [`projectlens-context-manager-development-plan.md`](projectlens-context-manager-development-plan.md) **为准**） |
 | [`projectlens-long-term-memory-development-plan.md`](projectlens-long-term-memory-development-plan.md) | 长期记忆规划 |
 
 ## 推荐阅读顺序

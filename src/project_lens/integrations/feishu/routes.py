@@ -21,7 +21,7 @@ async def receive_feishu_event(
     request: Request,
     background_tasks: BackgroundTasks,
     service: FeishuEventService = Depends(get_feishu_service),
-) -> dict[str, str]:
+) -> dict:
     body = await request.body()
     logger.info(
         "feishu callback received bytes=%d has_signature=%s",

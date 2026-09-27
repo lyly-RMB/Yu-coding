@@ -78,6 +78,14 @@ TOOL_SPECS: dict[str, ToolSpec] = {
         description="Read one current-project AgentRun detail without raw tool arguments",
         audit_payload_keys=("project", "run_id"),
     ),
+    "get_citation_body": ToolSpec(
+        tool_name="get_citation_body",
+        category=ToolLane.READ,
+        risk_class=RiskClass.READ,
+        surface=SurfaceClass.LOCKED,
+        description="Read one conversation citation body by citation_id within current binding",
+        audit_payload_keys=("project", "citation_id"),
+    ),
     "search_context": ToolSpec(
         tool_name="search_context",
         category=ToolLane.READ,

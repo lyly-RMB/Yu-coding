@@ -2,7 +2,10 @@
 
 这些文件在 **ProjectLens** 仓库内，供复制到本机 Hermes，**不会**自动写入 `~/.hermes`，也**不会**改 Hermes 源码。
 
-飞书联调总流程：[`docs/feishu-test-quickstart.md`](../../docs/feishu-test-quickstart.md)
+飞书联调总流程（预览卡 / 长连接）：[`docs/feishu-test-quickstart.md`](../../docs/feishu-test-quickstart.md)
+
+> **说明：** 飞书群正式路径已改为 ProjectLens 自管长连接（`scripts/start-projectlens-feishu-ws.ps1`）。  
+> 「直接回答」时 Hermes 在 ProjectLens 进程内跑工具循环。本节 profile 仍可用于 **CLI / MCP 调试**，不要再单独起 Hermes Feishu Gateway 抢长连接。
 
 ## 文件
 
@@ -13,14 +16,14 @@
 
 ## 前置
 
-1. 已安装 ProjectLens（含 MCP extra）：
+1. 已安装 ProjectLens（含 MCP / 飞书 WS extra）：
 
 ```powershell
 cd <ProjectLens 仓库根目录>
-py -3.12 -m pip install -e ".[dev,mcp]"
+py -3.12 -m pip install -e ".[dev,mcp,feishu-ws]"
 ```
 
-2. 本机已有可用的 Hermes Agent 仓库，并能运行：
+2. （可选）本机已有 Hermes Agent 仓库，用于 CLI 调试：
 
 ```powershell
 py -3.12 -m hermes_cli.main --help
@@ -34,7 +37,7 @@ py -3.12 -m hermes_cli.main --help
 py -3.12 -m project_lens.integrations.mcp.server
 ```
 
-## 拷贝到 Hermes（手动）
+## 拷贝到 Hermes（手动，CLI/MCP 调试用）
 
 1. 创建 profile 目录（按你的 Hermes 版本）：  
    `%LOCALAPPDATA%\hermes\profiles\projectlens-safe\`  
@@ -44,8 +47,7 @@ py -3.12 -m project_lens.integrations.mcp.server
 4. **必须改路径**：
    - `mcp_servers.projectlens.command` → 你的 Python 绝对路径（推荐）
    - `mcp_servers.projectlens.cwd` → ProjectLens 仓库绝对路径
-5. 将 `profile_routes[].chat_id` 换成真实飞书群 `oc_...`。
-6. 重启 Hermes gateway，确认 MCP 工具发现成功。
+5. 将 `profile_routes[].chat_id` 换成真实飞书群 `oc_...`（若仍用 profile 路由）。
 
 样例 YAML 里的路径是占位符，不要直接用。
 
@@ -61,19 +63,19 @@ py -3.12 -m project_lens.integrations.mcp.server
 
 ## 验收（手测）
 
-1. 工具列表出现 `mcp__projectlens__projectlens_ask_project`
-2. 项目问题走该工具，而不是 terminal/file
-3. ProjectLens run 有工具审计；`allow_apply=false`
-4. 改代码 / 部署 / 重启类请求被拒绝
-
-自动化：`pytest tests/test_hermes_phase2_profile.py -q`
-
-## 一键起网关
-
-配置好 `.env` 与 Hermes 后，可用：
+飞书群：
 
 ```powershell
-.\scripts\start-hermes-feishu-projectlens.ps1 -HermesRoot "<你的 Hermes 目录>" -ProjectId "payment"
+.\scripts\start-projectlens-feishu-ws.ps1
 ```
 
-详见飞书测试快速上手文档。
+1. `@` 后出现上下文预览卡  
+2. 「直接回答」走 ProjectLens 内 Hermes；有工具审计；`allow_apply=false`  
+3. 改代码 / 部署 / 重启类请求被拒绝  
+
+MCP / CLI 工具列表（若调试 profile）：
+
+1. 出现 `mcp__projectlens__projectlens_ask_project`  
+2. 项目问题走该工具，而不是 terminal/file  
+
+自动化：`pytest tests/test_hermes_phase2_profile.py tests/test_feishu_ws_ingress.py -q`

@@ -66,10 +66,39 @@ def test_context_omits_unapproved_proposal_shape_and_bounds_recent_turns() -> No
     )
     context = build_hermes_project_context(session=session)
 
-    assert "turn-0" not in context.text
-    assert "turn-4" in context.text
+    # Legacy path (no pending_send): dumps whatever is already on the session pool.
+    assert "turn-0" in context.text
     assert "turn-9" in context.text
     assert "pending" not in context.text
+
+
+def test_pending_send_mode_excludes_session_turns_not_in_set() -> None:
+    from project_lens.application.conversation_service import ConversationService
+
+    service = ConversationService()
+    project = ProjectRef(tenant_id="demo", project_id="payment")
+    session = service.get_or_create(
+        tenant_id="demo",
+        chat_id="chat-legacy",
+        user_id="user-1",
+        project=project,
+    )
+    for index in range(3):
+        session = service.record_turn(
+            session,
+            user_id="user-1",
+            text=f"keep-{index}",
+            rewritten_question=None,
+        )
+    session = service.refresh_pending_send(session, question="ask")
+    assert session.pending_send is not None
+    drop_id = session.pending_send.items[0].item_id
+    session = service.exclude_from_pending_send(session, (drop_id,))
+    context = build_hermes_project_context(session=session, use_pending_send=True)
+    assert "keep-0" not in context.text
+    assert "keep-1" in context.text
+    assert "keep-2" in context.text
+    assert "recent_turn[" not in context.text
 
 
 def test_context_can_inject_navigation_summary_without_memory_bodies() -> None:
