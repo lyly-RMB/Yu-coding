@@ -1,4 +1,4 @@
-"""S02: sliding window (8 turns) + compress oldest turns 1–4 + whole-pool default."""
+"""S02: adaptive 12-turn sliding window + bounded compression."""
 
 from __future__ import annotations
 
@@ -9,9 +9,11 @@ from project_lens.application.conversation_service import ConversationService
 from project_lens.domain.conversation import (
     COMPRESSED_ANSWER_TOKEN_BUDGET,
     DEFAULT_RECENT_TURN_LIMIT,
+    ConversationTurn,
     DefaultContextKind,
     clip_answer_and_evidence_to_budget,
     estimate_text_tokens,
+    split_recent_turns_for_compression,
 )
 from project_lens.domain.models import (
     Claim,
@@ -62,11 +64,11 @@ def _answer(*, business_summary: str = "结论摘要", evidence_content: str = "
     )
 
 
-def test_default_recent_turn_limit_is_eight() -> None:
-    assert DEFAULT_RECENT_TURN_LIMIT == 8
+def test_default_recent_turn_limit_is_twelve() -> None:
+    assert DEFAULT_RECENT_TURN_LIMIT == 12
 
 
-def test_ninth_turn_compresses_oldest_turns_1_through_4() -> None:
+def test_thirteenth_turn_compresses_oldest_turns_1_through_4() -> None:
     service = ConversationService()
     session = service.get_or_create(
         tenant_id="demo",
@@ -74,7 +76,7 @@ def test_ninth_turn_compresses_oldest_turns_1_through_4() -> None:
         user_id="user-1",
         project=_project(),
     )
-    for index in range(9):
+    for index in range(13):
         session = service.record_turn(
             session,
             user_id="user-1",
@@ -86,7 +88,7 @@ def test_ninth_turn_compresses_oldest_turns_1_through_4() -> None:
 
     assert session.summary.compression_cycle == 1
     assert session.summary.active_topic.get("compressed_turns") == "4"
-    assert len(session.recent_turns) == 5
+    assert len(session.recent_turns) == 9
     kept_texts = [turn.text for turn in session.recent_turns]
     assert kept_texts == [
         "question-4",
@@ -94,6 +96,10 @@ def test_ninth_turn_compresses_oldest_turns_1_through_4() -> None:
         "question-6",
         "question-7",
         "question-8",
+        "question-9",
+        "question-10",
+        "question-11",
+        "question-12",
     ]
     records = session.summary.compressed_turn_records
     assert len(records) == 4
@@ -118,7 +124,7 @@ def test_ninth_turn_compresses_oldest_turns_1_through_4() -> None:
     summary_items = [item for item in defaults if item.kind == DefaultContextKind.SUMMARY]
     recent_items = [item for item in defaults if item.kind == DefaultContextKind.RECENT_TURN]
     assert len(summary_items) == 1
-    assert len(recent_items) == 5
+    assert len(recent_items) == 9
     assert summary_items[0].label.startswith("[summary] 最近压缩（4轮）")
     assert "question-0" in (summary_items[0].user_question or "")
     assert "question-3" in (summary_items[0].user_question or "")
@@ -138,8 +144,8 @@ def test_second_compression_keeps_only_latest_summary_batch() -> None:
         user_id="user-1",
         project=_project(),
     )
-    # 9 turns → cycle 1 compresses oldest questions 0–3.
-    for index in range(9):
+    # 13 turns → cycle 1 compresses oldest questions 0–3.
+    for index in range(13):
         session = service.record_turn(
             session,
             user_id="user-1",
@@ -152,8 +158,8 @@ def test_second_compression_keeps_only_latest_summary_batch() -> None:
     first_batch = {item.user_question for item in session.summary.compressed_turn_records}
     assert first_batch == {"question-0", "question-1", "question-2", "question-3"}
 
-    # Grow past 8 again → cycle 2 replaces the summary batch.
-    for index in range(9, 13):
+    # Grow past 12 again → cycle 2 replaces the summary batch.
+    for index in range(13, 17):
         session = service.record_turn(
             session,
             user_id="user-1",
@@ -198,6 +204,28 @@ def test_answer_evidence_budget_clips_answer_first() -> None:
         COMPRESSED_ANSWER_TOKEN_BUDGET
     )
     assert len(clipped) < len(huge_answer)
+
+
+def test_token_budget_can_trigger_before_turn_limit() -> None:
+    turns = tuple(
+        ConversationTurn(
+            user_id="user-1",
+            text=f"question-{index}",
+            answer_summary="answer-" + ("x" * 220),
+            evidence_ids=(f"evidence-{index}",),
+        )
+        for index in range(12)
+    )
+    overflow, kept = split_recent_turns_for_compression(
+        turns,
+        recent_turn_limit=12,
+        recent_turn_token_budget=700,
+    )
+    assert overflow
+    assert len(kept) >= 6
+    assert estimate_text_tokens(
+        "\n".join(turn.answer_summary or "" for turn in kept)
+    ) <= 700
 
 
 def test_cross_day_turns_stay_in_default_pool_without_date_window() -> None:
@@ -260,7 +288,7 @@ def test_compressed_turn_still_retrievable_via_citation_tool() -> None:
         project=_project(),
     )
     target_body = "第1轮用户原文，压缩后仍须可按引用取回。"
-    for index in range(9):
+    for index in range(13):
         text = target_body if index == 0 else f"question-{index}"
         session = service.record_turn(
             session,

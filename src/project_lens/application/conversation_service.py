@@ -9,6 +9,7 @@ from project_lens.application.group_message_gateway import GroupChatHistoryGatew
 from project_lens.context.conversation_store import ConversationStore, InMemoryConversationStore
 from project_lens.domain.conversation import (
     DEFAULT_RECENT_TURN_LIMIT,
+    DEFAULT_RECENT_TURN_TOKEN_BUDGET,
     DEFAULT_SESSION_TTL,
     HISTORY_CANDIDATE_PAGE_SIZE,
     CitationEntry,
@@ -73,6 +74,7 @@ class ConversationService:
         *,
         rewriter: FollowupRewriter | None = None,
         recent_turn_limit: int = DEFAULT_RECENT_TURN_LIMIT,
+        recent_turn_token_budget: int | None = DEFAULT_RECENT_TURN_TOKEN_BUDGET,
         session_ttl: timedelta = DEFAULT_SESSION_TTL,
         lifecycle: LifecycleBus | None = None,
         group_history: GroupChatHistoryGateway | None = None,
@@ -80,6 +82,11 @@ class ConversationService:
         self._store = store or InMemoryConversationStore()
         self._rewriter = rewriter or FollowupRewriter()
         self._recent_turn_limit = max(2, recent_turn_limit)
+        self._recent_turn_token_budget = (
+            None
+            if recent_turn_token_budget is None
+            else max(1, int(recent_turn_token_budget))
+        )
         self._session_ttl = session_ttl
         self._lifecycle = lifecycle or LifecycleBus()
         self._group_history = group_history
@@ -401,6 +408,7 @@ class ConversationService:
         overflow, kept = split_recent_turns_for_compression(
             recent,
             recent_turn_limit=self._recent_turn_limit,
+            recent_turn_token_budget=self._recent_turn_token_budget,
         )
         # Pin traceback into L2 immediately so restart/compress cannot drop it.
         summary = pin_prior_traceback(

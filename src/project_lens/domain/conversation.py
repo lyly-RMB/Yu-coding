@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from enum import StrEnum
+from hashlib import sha256
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -12,8 +13,12 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from project_lens.domain.models import ProjectRef, utc_now
 from project_lens.domain.session_state import ProjectSessionState
 
-DEFAULT_RECENT_TURN_LIMIT = 8
-# Sliding window: when pool exceeds limit, compress oldest 1-based turns 1–4 into summary.
+DEFAULT_RECENT_TURN_LIMIT = 12
+# A turn-count ceiling is only a soft boundary; large answers/evidence can trigger
+# compression earlier so the session does not accumulate a few oversized turns.
+DEFAULT_RECENT_TURN_TOKEN_BUDGET = 6_000
+MIN_RECENT_TURNS_AFTER_COMPRESSION = 6
+# Sliding window: compress the oldest batch first, then keep the newest context.
 COMPRESS_TURN_START_1BASED = 1
 COMPRESS_TURN_END_1BASED = 4
 # Answer summary + evidence ids share this budget; user question is excluded.
@@ -396,26 +401,71 @@ def split_recent_turns_for_compression(
     recent: tuple[ConversationTurn, ...],
     *,
     recent_turn_limit: int,
+    recent_turn_token_budget: int | None = DEFAULT_RECENT_TURN_TOKEN_BUDGET,
     compress_start_1based: int = COMPRESS_TURN_START_1BASED,
     compress_end_1based: int = COMPRESS_TURN_END_1BASED,
 ) -> tuple[tuple[ConversationTurn, ...], tuple[ConversationTurn, ...]]:
     """Split (to_compress, kept) after appending a turn.
 
-    Product rule (limit >= 8): when len > 8, compress oldest 1-based turns 1–4.
-    Smaller custom limits keep legacy FIFO overflow for existing unit tests.
+    The default product rule keeps a wider 12-turn window and compresses the
+    oldest batch first.  A token budget can trigger the same operation before
+    the count limit; at least six recent turns remain when possible.  Smaller
+    custom limits keep legacy FIFO overflow semantics for callers/tests that
+    intentionally request a compact window.
     """
 
-    if len(recent) <= recent_turn_limit:
+    if not recent:
         return (), recent
+    token_budget = (
+        int(recent_turn_token_budget)
+        if recent_turn_token_budget is not None
+        else None
+    )
+    total_tokens = sum(
+        estimate_text_tokens(turn.text)
+        + estimate_text_tokens(turn.answer_summary or "")
+        + estimate_text_tokens(",".join(turn.evidence_ids))
+        for turn in recent
+    )
+    count_exceeded = len(recent) > recent_turn_limit
+    budget_exceeded = (
+        recent_turn_limit >= DEFAULT_RECENT_TURN_LIMIT
+        and token_budget is not None
+        and total_tokens > token_budget
+    )
+    if not count_exceeded and not budget_exceeded:
+        return (), recent
+
+    # Explicitly small windows retain the original FIFO behavior.
+    if recent_turn_limit < DEFAULT_RECENT_TURN_LIMIT:
+        return recent[:-recent_turn_limit], recent[-recent_turn_limit:]
+
     start = compress_start_1based - 1
     end = compress_end_1based
-    if (
-        recent_turn_limit >= DEFAULT_RECENT_TURN_LIMIT
-        and end <= len(recent)
-        and 0 <= start < end
-    ):
-        return recent[start:end], recent[:start] + recent[end:]
-    return recent[:-recent_turn_limit], recent[-recent_turn_limit:]
+    minimum_keep = min(
+        len(recent),
+        max(MIN_RECENT_TURNS_AFTER_COMPRESSION, recent_turn_limit // 2),
+    )
+    batch_size = end - start
+    compress_count = max(batch_size if (count_exceeded or budget_exceeded) else 0, len(recent) - recent_turn_limit)
+    compress_count = min(compress_count, max(1, len(recent) - minimum_keep))
+
+    if token_budget is not None:
+        while (
+            compress_count < len(recent) - minimum_keep
+            and sum(
+                estimate_text_tokens(turn.text)
+                + estimate_text_tokens(turn.answer_summary or "")
+                + estimate_text_tokens(",".join(turn.evidence_ids))
+                for turn in recent[compress_count:]
+            )
+            > token_budget
+        ):
+            compress_count += 1
+
+    if compress_count <= 0:
+        return (), recent
+    return recent[:compress_count], recent[compress_count:]
 
 
 def _in_date_window(occurred_at: datetime, date_window: DateWindow | None) -> bool:
@@ -518,7 +568,17 @@ def _pending_item_id_for_default(item: DefaultContextItem) -> str:
         # One stable row per compression batch (collapsed latest summary).
         return f"summary:latest:{stamp}"
     rid = str(item.run_id) if item.run_id is not None else "norun"
-    return f"turn:{rid}:{stamp}"
+    # Some deployments/tests use a coarse or frozen clock. Include stable
+    # content entropy so same-timestamp turns do not collapse into one row.
+    entropy = sha256(
+        "|".join(
+            (
+                item.user_question or item.label,
+                ",".join(item.evidence_ids),
+            )
+        ).encode("utf-8")
+    ).hexdigest()[:12]
+    return f"turn:{rid}:{stamp}:{entropy}"
 
 
 def pending_item_from_default(item: DefaultContextItem) -> PendingSendItem:
