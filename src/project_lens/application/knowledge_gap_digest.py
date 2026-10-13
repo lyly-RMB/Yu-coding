@@ -32,6 +32,7 @@ class KnowledgeGapDigestItem(FrozenModel):
     suggested_source_type: str = ""
     suggested_owner_ids: tuple[str, ...] = ()
     evidence_ids: tuple[UUID, ...] = ()
+    evidence_status: str = "authorized"
     occurrence_count: int = Field(ge=1)
     last_seen_at: datetime
 
@@ -162,7 +163,7 @@ class KnowledgeGapDigestService:
         if authorized_evidence_ids is not None:
             cases = tuple(
                 case for case in cases
-                if case.evidence_ids and set(case.evidence_ids).issubset(authorized_evidence_ids)
+                if not case.evidence_ids or set(case.evidence_ids).issubset(authorized_evidence_ids)
             )
         ongoing_states = {
             KnowledgeGapStatus.OPEN,
@@ -171,7 +172,7 @@ class KnowledgeGapDigestService:
             KnowledgeGapStatus.WAITING_FOR_SOURCE,
             KnowledgeGapStatus.SNOOZED,
         }
-        new = [case for case in cases if _within(case.first_detected_at, start, end) and case.status != KnowledgeGapStatus.CANDIDATE]
+        new = [case for case in cases if _within(case.first_detected_at, start, end)]
         reopened = [case for case in cases if case.status == KnowledgeGapStatus.REOPENED and _within(case.last_seen_at, start, end)]
         resolved = [case for case in cases if case.status == KnowledgeGapStatus.RESOLVED and case.resolved_at is not None and _within(case.resolved_at, start, end)]
         ongoing = [case for case in cases if case.status in ongoing_states]
@@ -291,7 +292,21 @@ def render_owner_knowledge_gap_digest(
         lines.extend(("", f"{label}："))
         for item in items[:20]:
             impact = f"；影响：{item.impact}" if item.impact else ""
-            lines.append(f"- [{item.severity.value}] {item.title}（出现 {item.occurrence_count} 次）{impact}")
+            lines.extend((
+                f"### {item.title}",
+                f"- 严重程度：{item.severity.value}；状态：{item.status.value}；出现次数：{item.occurrence_count}",
+                f"- 原始问题：{item.question}",
+                f"- 缺口说明：{item.description}",
+                f"- 证据状态：{'已授权证据' if item.evidence_status == 'authorized' else '当前没有可用的授权证据'}",
+            ))
+            if item.evidence_ids:
+                lines.append(f"- 关联证据数：{len(item.evidence_ids)}")
+            if item.suggested_source_type:
+                lines.append(f"- 建议补充资料类型：{item.suggested_source_type}")
+            if impact:
+                lines.append(f"- 影响：{item.impact}")
+            if item.target_ref:
+                lines.append(f"- 关联对象：{item.target_ref}")
     return {
         "config": {"wide_screen_mode": True},
         "header": {"template": "orange", "title": {"tag": "plain_text", "content": "分配给你的知识缺口"}},
@@ -306,6 +321,7 @@ def _item(case: KnowledgeGapCase) -> KnowledgeGapDigestItem:
         impact=case.impact, target_ref=case.target_ref,
         suggested_source_type=case.suggested_source_type,
         suggested_owner_ids=case.suggested_owner_ids, evidence_ids=case.evidence_ids,
+        evidence_status=case.evidence_status,
         occurrence_count=case.occurrence_count, last_seen_at=case.last_seen_at,
     )
 

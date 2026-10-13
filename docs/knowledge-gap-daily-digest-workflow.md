@@ -1,8 +1,8 @@
 # Knowledge Gap Daily Digest Workflow
 
-**状态**：后期实现设计  
-**版本**：V1.0  
-**更新时间**：2026-09-10  
+**状态**：已实现，持续补充测试
+**版本**：V1.1
+**更新时间**：2026-10-14
 **适用产品**：ProjectLens 项目协作 Agent
 
 ## 1. 目的
@@ -29,6 +29,30 @@ Agent 发现资料缺失/冲突/过期
 - 它会影响需求、开发、测试、发布还是决策；
 - 应由谁补充什么资料或确认什么结论；
 - 补充资料后，系统是否真的能够回答这个问题。
+
+## 1.1 当前实现状态
+
+当前代码已经覆盖以下闭环：
+
+| 能力 | 当前行为 |
+|---|---|
+| 飞书问答发现 | 从 `answer.unknowns`、工具结果或回答正文中的知识缺口信号生成 `missing_source` 候选 |
+| 持久化 | 保存 `KnowledgeGapCase`、`KnowledgeGapObservation`，按 canonical key 聚合重复观察 |
+| 无证据缺口 | `missing_source` 可以在没有授权 Evidence 时入库，并标记 `evidence_status=no_authorized_evidence` |
+| 即时通知 | 创建/更新缺口后，按 `owner_mappings` 解析负责人 `open_id`，直接发送负责人私聊卡片 |
+| 详细卡片 | 展示项目、周期、标题、原始问题、缺口说明、严重程度、状态、出现次数、证据状态、影响、建议资料类型和关联对象 |
+| 周期摘要 | `KnowledgeGapDigestRunner` 按配置周期发送项目摘要和负责人摘要；默认测试配置可使用 60 秒间隔 |
+| 去重 | `knowledge_gap_notifications` 记录通知认领，避免同一周期同一收件人重复发送 |
+| 旧数据库 | `knowledge_gap` v4 迁移会补建通知表和索引 |
+
+即时私发和周期 Digest 是两条独立路径：即时私发用于让负责人尽快看到新缺口，Digest 用于汇总新增、持续、重新打开和已关闭信息。飞书机器人可以使用 `open_id` 主动发起私聊，不要求用户预先创建单聊窗口。
+
+## 1.2 当前限制
+
+- 默认测试负责人是项目绑定中的 `owner_mappings`，没有映射时缺口仍会入库，但不会发送负责人私聊。
+- 发送失败不会阻断原始问答；服务会记录异常，后续可通过新的观察或 Digest 重试。
+- `access_limited`、`unclear_question` 不会按普通 `missing_source` 通知负责人。
+- 详细卡片当前以单个负责人视角展示，不包含受限 Evidence 正文，只展示授权范围内的证据数量和状态。
 
 ## 2. 产品价值
 
@@ -337,7 +361,7 @@ severity = impact × recurrence × deadline_proximity × uncertainty
 - 缺口重新打开；
 - 缺口被验证关闭。
 
-普通新增缺口默认进入每日摘要，不即时打断群聊。
+当前飞书问答路径会在缺口创建后立即私发配置的负责人；普通周期任务仍通过每日摘要汇总发送，避免在没有负责人映射时向无关用户打扰。
 
 ## 10. 每日摘要 Workflow
 

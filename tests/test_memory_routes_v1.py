@@ -18,7 +18,13 @@ def _headers(*, actor_id: str = "u1", chat_id: str = "chat-1", tenant_key: str =
     return project_agent_headers(actor_id=actor_id, chat_id=chat_id, tenant_key=tenant_key)
 
 
-def _memory(client: TestClient, *, text: str, subject: str = "payment-service"):
+def _memory(
+    client: TestClient,
+    *,
+    text: str,
+    subject: str = "payment-service",
+    visibility_scope: tuple[str, ...] = (),
+):
     project = ProjectRef(tenant_id="demo", project_id="payment")
     proposal = MemoryProposal(
         project=project,
@@ -28,6 +34,7 @@ def _memory(client: TestClient, *, text: str, subject: str = "payment-service"):
         subject=subject,
         claim_slot="transport",
         evidence_ids=(uuid4(),),
+        visibility_scope=visibility_scope,
     )
     client.app.state.memory_store.create_proposal(proposal)
     _, memory = client.app.state.memory_store.decide_proposal(
@@ -84,9 +91,10 @@ def test_v1_memory_routes_reject_cross_tenant_actor() -> None:
 
 def test_legacy_memory_list_route_filters_visibility_before_returning_rows() -> None:
     client = _client()
-    memory = _memory(client, text="private payment decision")
-    client.app.state.memory_store._memories[memory.id] = memory.model_copy(
-        update={"visibility_scope": ("actor:another-user",)}
+    _memory(
+        client,
+        text="private payment decision",
+        visibility_scope=("actor:another-user",),
     )
 
     response = client.get(

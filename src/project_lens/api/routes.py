@@ -672,6 +672,8 @@ def project_obsidian_export(
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
     except ObsidianError as exc:
+        if "disabled" in str(exc).lower():
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     return ProjectObsidianExportResponse(
         project=result.project,

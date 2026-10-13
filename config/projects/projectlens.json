@@ -89,6 +89,7 @@
   ],
   "default_skill_guides": ["project_intro"],
   "members": [
+    {"actor_id": "u-project-owner", "roles": ["manager"]},
     {"actor_id": "u1", "roles": ["developer"]},
     {"actor_id": "hermes-user", "roles": ["developer"]},
     {"actor_id": "ou_287cf34ee1e60e7b44a8c562562dbe41", "roles": ["developer"]},

@@ -70,6 +70,7 @@ class KnowledgeGapCandidate(FrozenModel):
     suggested_source_type: str = Field(default="", max_length=100)
     severity: GapSeverity = GapSeverity.MEDIUM
     evidence_ids: tuple[UUID, ...] = ()
+    evidence_status: str = Field(default="authorized", pattern="^(authorized|no_authorized_evidence)$")
     source_refs: tuple[str, ...] = ()
     source_refs: tuple[str, ...] = ()
     conflicting_source_ids: tuple[str, ...] = ()
@@ -90,6 +91,7 @@ class KnowledgeGapCase(FrozenModel):
     impact: str = ""
     target_ref: str = ""
     evidence_ids: tuple[UUID, ...] = ()
+    evidence_status: str = Field(default="authorized", pattern="^(authorized|no_authorized_evidence)$")
     source_refs: tuple[str, ...] = ()
     source_refs: tuple[str, ...] = ()
     conflicting_source_ids: tuple[str, ...] = ()
@@ -169,6 +171,9 @@ class KnowledgeGapAction(FrozenModel):
     linked_task_id: str | None = None
     created_at: datetime
     completed_at: datetime | None = None
+    updated_by: str | None = None
+    updated_at: datetime | None = None
+    status_reason: str | None = None
 
 
 class KnowledgeGapRecheck(FrozenModel):

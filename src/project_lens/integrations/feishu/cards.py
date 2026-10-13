@@ -157,9 +157,9 @@ def render_answer_card(
     view = select_answer_view(run, answer)
     selected_audience = audience or AnswerAudience.TEAM
     audience_view = None
-    # Audience views are opt-in. Automatic role projection used to append a
-    # second copy of the complete answer to every card.
-    if audience is not None and run.runtime_access is not None and run.channel_id:
+    # Use the run's authorized role when the caller does not request a view
+    # explicitly. This keeps the Feishu card aligned with the API projection.
+    if run.runtime_access is not None and run.channel_id:
         scope = effective_scope_from_audit_dict(
             run.runtime_access,
             project=run.project,
@@ -201,6 +201,7 @@ def render_answer_card(
         AnswerAudience.TECHNICAL,
         AnswerAudience.OPS,
         AnswerAudience.EVIDENCE,
+        AnswerAudience.TEAM,
     }:
         evidence_refs = tuple(
             human_evidence_label(item) for item in answer.evidence[:5]

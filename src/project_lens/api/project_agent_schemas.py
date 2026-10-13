@@ -144,6 +144,7 @@ class ProjectAgentKnowledgeGapActionStatusRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     project: ProjectRef
     status: str = Field(min_length=1, max_length=30)
+    reason: str = Field(default="", max_length=2_000)
 
 
 class ProjectAgentKnowledgeGapTransitionRequest(BaseModel):

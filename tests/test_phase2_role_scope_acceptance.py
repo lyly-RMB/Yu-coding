@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from uuid import UUID
 
 from project_lens.application.answer_envelope import project_answer_to_envelope
 from project_lens.domain.models import (
@@ -25,6 +26,7 @@ def _envelope(role: RoleKind) -> dict[str, object]:
     project = ProjectRef(tenant_id="demo", project_id="payment")
     now = datetime.now(timezone.utc)
     doc = Evidence(
+        id=UUID("11111111-1111-1111-1111-111111111111"),
         type=EvidenceType.DOCUMENT,
         project=project,
         source=SourceRef(system="feishu", source_id="req-204"),
@@ -34,6 +36,7 @@ def _envelope(role: RoleKind) -> dict[str, object]:
         content_hash="a" * 16,
     )
     code = Evidence(
+        id=UUID("22222222-2222-2222-2222-222222222222"),
         type=EvidenceType.CODE,
         project=project,
         source=SourceRef(system="github", source_id="src/order_service.py"),

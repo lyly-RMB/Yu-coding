@@ -56,6 +56,7 @@ from project_lens.application.knowledge_gap_digest import (
 from project_lens.application.knowledge_gap_service import KnowledgeGapService
 from project_lens.domain.knowledge_gap import GapActionStatus, GapActionType, KnowledgeGapStatus
 from project_lens.context.models import AccessContext
+from project_lens.project_space.policies import RoleKind
 
 router = APIRouter(tags=["project-agent"])
 
@@ -113,6 +114,29 @@ def get_project_space_inspect_service(request: Request) -> ProjectSpaceInspectSe
     if service is None:
         raise RuntimeError("project_space_inspect_service is not configured")
     return service
+
+
+def _require_knowledge_gap_access(request: Request, actor, project, *, write: bool = False):
+    if not actor.authenticated or actor.tenant_key != project.tenant_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="actor/project mismatch")
+    try:
+        resolved = request.app.state.project_runtime_context_resolver.resolve(
+            tenant_id=project.tenant_id,
+            project_id=project.project_id,
+            chat_id=actor.chat_id,
+            user_id=actor.actor_id,
+            chat_type=actor.chat_type,
+            identity_source=actor.source,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="unknown project") from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    if "list_knowledge_gaps" not in resolved.effective_scope.allowed_tools:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="knowledge-gap access is not allowed")
+    if write and resolved.effective_scope.role in {RoleKind.GUEST, RoleKind.ONBOARDING}:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="knowledge-gap changes require a project role")
+    return resolved
 
 
 @router.get(
@@ -284,7 +308,7 @@ def project_agent_knowledge_gap_digest_preview(
             chat_type=actor.chat_type,
             identity_source=actor.source,
         )
-        if "search_context" not in resolved.effective_scope.allowed_tools:
+        if "list_knowledge_gaps" not in resolved.effective_scope.allowed_tools:
             raise PermissionError("knowledge-gap digest preview is not allowed")
         period_start = _parse_digest_datetime(payload.period_start)
         period_end = _parse_digest_datetime(payload.period_end)
@@ -335,8 +359,7 @@ def project_agent_knowledge_gap_action(
     service: KnowledgeGapService = Depends(get_knowledge_gap_service),
 ) -> dict[str, object]:
     actor = get_trusted_actor_context(request)
-    if not actor.authenticated or actor.tenant_key != payload.project.tenant_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="actor/project mismatch")
+    _require_knowledge_gap_access(request, actor, payload.project, write=True)
     case = service.get_case(gap_id)
     if case is None or case.project.tenant_id != payload.project.tenant_id or case.project.project_id != payload.project.project_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="knowledge gap not found")
@@ -355,14 +378,13 @@ def project_agent_knowledge_gap_action_status(
     service: KnowledgeGapService = Depends(get_knowledge_gap_service),
 ) -> dict[str, object]:
     actor = get_trusted_actor_context(request)
-    if not actor.authenticated or actor.tenant_key != payload.project.tenant_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="actor/project mismatch")
+    _require_knowledge_gap_access(request, actor, payload.project, write=True)
     action = service.get_action(action_id)
     case = service.get_case(action.gap_id) if action else None
     if action is None or case is None or case.project.tenant_id != payload.project.tenant_id or case.project.project_id != payload.project.project_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="knowledge gap action not found")
     try:
-        updated = service.update_action(action_id, GapActionStatus(payload.status))
+        updated = service.update_action(action_id, GapActionStatus(payload.status), actor_id=actor.actor_id, reason=payload.reason)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     return updated.model_dump(mode="json")
@@ -376,8 +398,7 @@ def project_agent_knowledge_gap_transition(
     service: KnowledgeGapService = Depends(get_knowledge_gap_service),
 ) -> dict[str, object]:
     actor = get_trusted_actor_context(request)
-    if not actor.authenticated or actor.tenant_key != payload.project.tenant_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="actor/project mismatch")
+    _require_knowledge_gap_access(request, actor, payload.project, write=True)
     case = service.get_case(gap_id)
     if case is None or case.project.tenant_id != payload.project.tenant_id or case.project.project_id != payload.project.project_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="knowledge gap not found")

@@ -161,7 +161,12 @@ class InMemoryKnowledgeGapStore:
 class SQLiteKnowledgeGapStore:
     def __init__(self, database: SQLiteGapDatabase) -> None:
         self._database = database
-        database.run_migrations("knowledge_gap", {1: _create_schema, 2: _create_recheck_schema, 3: _create_recheck_job_schema})
+        database.run_migrations("knowledge_gap", {
+            1: _create_schema,
+            2: _create_recheck_schema,
+            3: _create_recheck_job_schema,
+            4: _create_notification_schema,
+        })
 
     def get(self, gap_id: UUID) -> KnowledgeGapCase | None:
         row = self._database.query_one("SELECT payload FROM knowledge_gap_cases WHERE id = ?", (str(gap_id),))
@@ -426,6 +431,23 @@ def _create_recheck_job_schema(connection: sqlite3.Connection) -> None:
         )
     """)
     connection.execute("CREATE INDEX idx_knowledge_gap_recheck_jobs_project ON knowledge_gap_recheck_jobs (tenant_id, project_id, status, created_at)")
+
+
+def _create_notification_schema(connection: sqlite3.Connection) -> None:
+    connection.executescript("""
+        CREATE TABLE IF NOT EXISTS knowledge_gap_notifications (
+            notification_key TEXT PRIMARY KEY,
+            gap_id TEXT NOT NULL,
+            tenant_id TEXT NOT NULL,
+            project_id TEXT NOT NULL,
+            recipient_id TEXT NOT NULL,
+            event_type TEXT NOT NULL,
+            period_key TEXT NOT NULL,
+            claimed_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_knowledge_gap_notifications_project
+            ON knowledge_gap_notifications (tenant_id, project_id, period_key);
+    """)
 
 
 def _same_project(left: ProjectRef, right: ProjectRef) -> bool:

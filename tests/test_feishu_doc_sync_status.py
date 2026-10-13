@@ -179,6 +179,7 @@ def test_status_store_failure_does_not_break_normal_chat() -> None:
             raise RuntimeError("status db down")
 
     app.state.feishu_event_service._sync_status_store = BrokenStore()
+    app.state.feishu_event_service._context_preview_enabled = False
     client = TestClient(app)
 
     # Status shortcut still returns accepted and posts a card with read error.

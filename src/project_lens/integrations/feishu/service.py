@@ -34,8 +34,9 @@ from project_lens.application.risk_feedback_service import (
 )
 from project_lens.application.risk_notification_service import RiskNotificationService
 from project_lens.application.knowledge_gap_service import KnowledgeGapService
+from project_lens.application.knowledge_gap_digest import DailyKnowledgeGapDigest, KnowledgeGapDigestItem, OwnerKnowledgeGapDigest, render_owner_knowledge_gap_digest
 from project_lens.application.knowledge_gap_recheck import KnowledgeGapRecheckService
-from project_lens.domain.knowledge_gap import GapActionType, KnowledgeGapStatus
+from project_lens.domain.knowledge_gap import GapActionType, KnowledgeGapStatus, KnowledgeGapCandidate, KnowledgeGapCaseType, GapSeverity
 from project_lens.context.memory_store import MemoryStore
 from project_lens.context.memory_retrieval import build_memory_summary
 from project_lens.context.memory_authorization import authorize_memory_candidates
@@ -2091,6 +2092,7 @@ class FeishuEventService:
                 executed.id,
             )
             return
+        await self._persist_feishu_answer_gap(executed)
         memory_proposal = None
         if self._memory_gateway is not None:
             try:
@@ -2139,7 +2141,10 @@ class FeishuEventService:
             memory_proposal=memory_proposal,
             show_debug_audit=False,
         )
-        if getattr(executed, "entry_mode", "") == "feishu_context_preview_direct":
+        # Direct-answer confirmation is a plain-text UX unless the answer
+        # produced an approval-gated memory proposal, in which case the
+        # interactive card is required to expose approve/reject actions.
+        if getattr(executed, "entry_mode", "") == "feishu_context_preview_direct" and memory_proposal is None:
             body = (executed.answer.answer_text or executed.answer.business_summary or executed.answer.conclusion).strip()
             await self._safe_post_text(chat_id, body or format_failure_as_text(executed))
             return
@@ -2163,6 +2168,61 @@ class FeishuEventService:
             executed.id,
             memory_proposal.id if memory_proposal is not None else None,
         )
+
+    async def _persist_feishu_answer_gap(self, executed: Any) -> None:
+        """Persist Feishu gap answers and notify the configured test owner."""
+        if self._knowledge_gaps is None or executed.answer is None:
+            return
+        answer = executed.answer
+        text = (answer.answer_text or answer.business_summary or answer.conclusion or "").strip()
+        unknowns = tuple(str(item).strip() for item in (getattr(answer, "unknowns", ()) or ()) if str(item).strip())
+        if not unknowns and not any(marker in text for marker in ("知识缺口", "缺少资料", "缺失证据")):
+            return
+        evidence_ids = frozenset(item for claim in answer.claims for item in claim.evidence_ids)
+        title = unknowns[0][:300] if unknowns else "项目知识缺口报告待负责人补充资料"
+        candidate = KnowledgeGapCandidate(
+            project=executed.project,
+            type=KnowledgeGapCaseType.MISSING_SOURCE,
+            title=title,
+            question=title,
+            description=(text or title)[:4000],
+            severity=GapSeverity.MEDIUM,
+            evidence_ids=tuple(evidence_ids),
+            evidence_status="authorized" if evidence_ids else "no_authorized_evidence",
+            suggested_owner_ids=("u-project-owner",),
+        )
+        try:
+            case = self._knowledge_gaps.observe(
+                candidate,
+                authorized_project=executed.project,
+                authorized_evidence_ids=evidence_ids,
+                visibility_scope=f"project:{executed.project.project_id}:read",
+                created_by=str(executed.user_id or "feishu"),
+                run_id=str(executed.id),
+            )
+            owner_id = "u-project-owner"
+            open_id = self._identity_mapper.owner_open_id(executed.project, owner_id)
+            if case is not None and open_id:
+                item = KnowledgeGapDigestItem(
+                    gap_id=case.id, title=case.title, question=case.question,
+                    description=case.description, severity=case.severity, status=case.status,
+                    impact=case.impact, target_ref=case.target_ref,
+                    suggested_source_type=case.suggested_source_type,
+                    suggested_owner_ids=case.suggested_owner_ids, evidence_ids=case.evidence_ids,
+                    evidence_status=case.evidence_status,
+                    occurrence_count=case.occurrence_count, last_seen_at=case.last_seen_at,
+                )
+                now = datetime.now(timezone.utc)
+                digest = DailyKnowledgeGapDigest(
+                    project=case.project, period_start=case.first_detected_at,
+                    period_end=max(now, case.first_detected_at), digest_date=now.date(),
+                    new_cases=(item,), summary_hash="0" * 64,
+                )
+                await self._messenger.post_user_card(open_id, render_owner_knowledge_gap_digest(
+                    digest, OwnerKnowledgeGapDigest(owner_id=owner_id, new_cases=(item,)),
+                ))
+        except Exception:  # noqa: BLE001 - gap notification must not block answer delivery
+            logger.exception("persist/send Feishu knowledge gap failed run_id=%s", executed.id)
 
     def _try_role_view_switch(
         self,

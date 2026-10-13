@@ -174,7 +174,12 @@ def test_feishu_project_question_skips_preview_when_disabled() -> None:
     assert run.entry_mode == "feishu_context_preview_bypass"
     types = [m.message_type for m in app.state.feishu_messenger.messages]
     assert "text" in types
-    assert "interactive" not in types
+    assert "interactive" in types
+    assert not any(
+        "pending_send" in str(m.content)
+        for m in app.state.feishu_messenger.messages
+        if m.message_type == "interactive"
+    )
     assert any(
         "收到" in str(m.content.get("text") or "")
         for m in app.state.feishu_messenger.messages
@@ -272,9 +277,10 @@ def test_feishu_sync_status_and_chitchat_do_not_create_agent_runs() -> None:
     sync = client.post("/api/v1/feishu/events", json=_message_payload(event_id="sync", text="同步了吗？"))
     chat = client.post("/api/v1/feishu/events", json=_message_payload(event_id="chat", text="你好"))
     assert sync.json() == {"status": "accepted"}
-    assert chat.json() == {"status": "accepted"}
+    assert chat.json()["status"] == "accepted"
     assert "run_id" not in sync.json()
-    assert "run_id" not in chat.json()
+    assert chat.json()["pending"] is True
+    assert chat.json()["session_id"]
 
 
 def test_feishu_event_id_is_idempotent() -> None:

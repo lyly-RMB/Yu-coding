@@ -149,6 +149,7 @@ def _configure_feishu(app) -> None:
     )
     app.state.feishu_messenger = RecordingFeishuMessenger()
     app.state.feishu_event_service._messenger = app.state.feishu_messenger
+    app.state.feishu_event_service._context_preview_enabled = False
     app.state.feishu_hermes_tool_loop_bridge.answer = _FakeHermesEngineeringBridge().answer
     if getattr(app.state, "hermes_runtime_service", None) is not None:
         app.state.hermes_runtime_service._bridge = app.state.feishu_hermes_tool_loop_bridge

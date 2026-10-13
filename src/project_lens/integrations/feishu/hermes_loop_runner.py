@@ -380,14 +380,12 @@ class HermesAIAgentLoopRunner:
                 answer_text = extract_hermes_answer_text(repaired_response) or answer_text
                 answer_draft = repaired_draft
         if answer_draft is None:
-            return _failure_result(
-                "Hermes 返回了未结构化文本，未能解析为 AnswerDraft。",
-                final_response=final_response,
-                tool_calls=tool_calls,
-                messages=messages,
-                default_code=HERMES_PARSE_FAILED,
-                context_budget=budget,
-            )
+            # Backward-compatible provider path: retain a natural-language
+            # answer when citation-ready tool evidence exists. The legacy
+            # parser marks it unknown and never promotes prose to a fact.
+            from project_lens.agent.hermes_answer_parser import parse_hermes_answer
+
+            answer_draft = parse_hermes_answer(final_response)
         verified_answer = project_answer_from_hermes(
             project=project,
             draft=answer_draft,
@@ -490,7 +488,7 @@ def _run_evidence_recovery(*, agent: Any, question: str) -> dict[str, Any] | Non
         "empty, failed, or did not provide citation-ready evidence. Do not answer "
         "yet. For project identity or introduction, call projectlens_read_project_file "
         "on docs/projectlens-product-document.md first; if that path is unavailable, call "
-        "projectlens_list_project_files for README/docs and then read one public file. "
+        "projectlens_list_project_files for README.md or docs/ and then read one public file. "
         "Use projectlens_search_context only as a supplement. Do not call "
         "projectlens_authorized_evidence again unless needed."
     )

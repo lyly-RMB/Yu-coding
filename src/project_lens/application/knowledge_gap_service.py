@@ -11,6 +11,7 @@ from project_lens.domain.knowledge_gap import (
     ALLOWED_GAP_TRANSITIONS,
     GapTriggerType,
     KnowledgeGapCandidate,
+    KnowledgeGapCaseType,
     KnowledgeGapCase,
     KnowledgeGapObservation,
     KnowledgeGapRecheck,
@@ -112,7 +113,7 @@ class KnowledgeGapService:
         _require_project(candidate.project, authorized_project)
         if candidate.type.value in {"access_limited", "unclear_question"}:
             return None
-        if not candidate.evidence_ids:
+        if not candidate.evidence_ids and candidate.type != KnowledgeGapCaseType.MISSING_SOURCE:
             raise ValueError("knowledge-gap candidates require authorized evidence")
         if any(item not in authorized_evidence_ids for item in candidate.evidence_ids):
             raise ValueError("candidate references evidence outside the authorized set")
@@ -132,6 +133,7 @@ class KnowledgeGapService:
                 impact=candidate.impact,
                 target_ref=candidate.target_ref,
                 evidence_ids=tuple(dict.fromkeys(candidate.evidence_ids)),
+                evidence_status=("authorized" if candidate.evidence_ids else "no_authorized_evidence"),
                 source_refs=tuple(dict.fromkeys(candidate.source_refs)),
                 conflicting_source_ids=tuple(dict.fromkeys(candidate.conflicting_source_ids)),
                 suggested_source_type=candidate.suggested_source_type,
@@ -152,6 +154,7 @@ class KnowledgeGapService:
                 ),
                 "severity": _max_severity(current.severity, candidate.severity),
                 "evidence_ids": tuple(dict.fromkeys((*current.evidence_ids, *candidate.evidence_ids))),
+                "evidence_status": ("authorized" if (*current.evidence_ids, *candidate.evidence_ids) else "no_authorized_evidence"),
                 "source_refs": tuple(dict.fromkeys((*current.source_refs, *candidate.source_refs))),
                 "conflicting_source_ids": tuple(dict.fromkeys((*current.conflicting_source_ids, *candidate.conflicting_source_ids))),
                 "suggested_owner_ids": tuple(dict.fromkeys((*current.suggested_owner_ids, *candidate.suggested_owner_ids))),
@@ -190,11 +193,12 @@ class KnowledgeGapService:
         result: list[KnowledgeGapCase] = []
         for gap in report.gaps:
             evidence_ids = tuple(item for item in gap.evidence_ids if item in authorized_evidence_ids)
-            if not evidence_ids:
+            case_type = _case_type_for_report_gap(gap.type)
+            if not evidence_ids and case_type != KnowledgeGapCaseType.MISSING_SOURCE:
                 continue
             candidate = KnowledgeGapCandidate(
                 project=authorized_project,
-                type=_case_type_for_report_gap(gap.type),
+                type=case_type,
                 title=gap.title,
                 question=gap.title,
                 description=gap.description,
@@ -203,6 +207,7 @@ class KnowledgeGapService:
                 target_ref=gap.target_ref or "",
                 severity=_severity_from_report(gap.severity.value),
                 evidence_ids=evidence_ids,
+                evidence_status=("authorized" if evidence_ids else "no_authorized_evidence"),
                 suggested_owner_ids=gap.suggested_owners,
             )
             case = self.observe(
@@ -241,7 +246,7 @@ class KnowledgeGapService:
         if status == KnowledgeGapStatus.RESOLVED:
             updates.update({"resolved_at": now, "resolved_by": actor_id, "resolution_note": reason})
         elif current.status == KnowledgeGapStatus.RESOLVED:
-            updates.update({"resolved_at": None, "resolved_by": None})
+            updates.update({"resolved_at": None, "resolved_by": None, "resolution_note": None})
         if status == KnowledgeGapStatus.DISMISSED:
             updates["dismissed_reason"] = reason
         updated = current.model_copy(update=updates)
@@ -259,7 +264,15 @@ class KnowledgeGapService:
         self._store.save_action(action)
         return action
 
-    def update_action(self, action_id: UUID, status: GapActionStatus, *, now: datetime | None = None) -> KnowledgeGapAction:
+    def update_action(
+        self,
+        action_id: UUID,
+        status: GapActionStatus,
+        *,
+        actor_id: str,
+        reason: str = "",
+        now: datetime | None = None,
+    ) -> KnowledgeGapAction:
         action = self._store.get_action(action_id)
         if action is None:
             raise KeyError(f"knowledge gap action not found: {action_id}")
@@ -271,7 +284,18 @@ class KnowledgeGapService:
         }
         if status != action.status and status not in allowed[action.status]:
             raise ValueError(f"invalid gap-action transition: {action.status.value} -> {status.value}")
-        updated = action.model_copy(update={"status": status, "completed_at": _utc(now or datetime.now(timezone.utc)) if status == GapActionStatus.COMPLETED else action.completed_at})
+        if not actor_id.strip():
+            raise ValueError("action updates require an actor")
+        if status != action.status and not reason.strip():
+            raise ValueError("action status changes require a reason")
+        at = _utc(now or datetime.now(timezone.utc))
+        updated = action.model_copy(update={
+            "status": status,
+            "completed_at": at if status == GapActionStatus.COMPLETED else action.completed_at,
+            "updated_by": actor_id,
+            "updated_at": at,
+            "status_reason": reason.strip() or action.status_reason,
+        })
         self._store.save_action(updated)
         return updated
 

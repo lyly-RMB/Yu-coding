@@ -86,6 +86,32 @@ GET /api/v1/integrations/feishu/status
 
 默认生产决策路径为 `PROJECT_LENS_AGENT_MODE=hermes`。可执行配置剖面见 [`docs/pilot-launch-config.md`](docs/pilot-launch-config.md)。Hermes profile（CLI/MCP 调试）见 [`config/hermes/README.md`](config/hermes/README.md)。
 
+## 知识缺口闭环
+
+当前已实现的知识缺口链路如下：
+
+```text
+飞书问答发现 unknown / missing_source
+-> 生成 KnowledgeGapCase 和 Observation
+-> 按项目去重、累计出现次数并保存到 SQLite
+-> 立即向配置的负责人 open_id 私发详细卡片
+-> 由 Digest runner 按周期发送项目/负责人摘要
+-> 负责人在飞书卡片中认领、复查、暂缓或标记误报
+```
+
+负责人卡片包含缺口标题、原始问题、详细说明、严重程度、状态、出现次数、证据状态、影响、建议资料类型和关联对象。`missing_source` 即使当前没有授权 Evidence 也可以入库，但 `access_limited` 和 `unclear_question` 不会被当作普通知识缺口通知。
+
+关键配置：
+
+```dotenv
+PROJECT_LENS_FEISHU_KNOWLEDGE_GAP_DIGEST_ENABLED=true
+PROJECT_LENS_FEISHU_KNOWLEDGE_GAP_DIGEST_INTERVAL_SECONDS=60
+PROJECT_LENS_FEISHU_KNOWLEDGE_GAP_DIGEST_TIMEZONE=Asia/Shanghai
+PROJECT_LENS_FEISHU_PROJECT_BINDINGS={..."owner_mappings":{"u-project-owner":"ou_..."}...}
+```
+
+数据库会自动执行 `knowledge_gap` 组件迁移；通知去重使用 `knowledge_gap_notifications` 表。详细流程、状态和测试用例见 [`docs/knowledge-gap-daily-digest-workflow.md`](docs/knowledge-gap-daily-digest-workflow.md) 和 [`docs/knowledge-loop-remediation-and-test-plan.md`](docs/knowledge-loop-remediation-and-test-plan.md)。
+
 ## 项目接入
 
 更换项目应更换 **ProjectSpace** 配置，而不是修改 Agent 逻辑。
@@ -106,6 +132,7 @@ GET /api/v1/integrations/feishu/status
 | [`docs/feishu-test-quickstart.md`](docs/feishu-test-quickstart.md) | 飞书测试快速上手（新人） |
 | [`docs/feishu-setup.md`](docs/feishu-setup.md) | 飞书联调清单 |
 | [`docs/pilot-launch-config.md`](docs/pilot-launch-config.md) | Stub / Safe Live / 测试群配置 |
+| [`docs/knowledge-gap-daily-digest-workflow.md`](docs/knowledge-gap-daily-digest-workflow.md) | 知识缺口发现、持久化、负责人私发和 Digest |
 | [`docs/projectspace-onboarding-guide.md`](docs/projectspace-onboarding-guide.md) | 新项目接入 |
 
 规划稿与历史蓝图以产品总纲为准；冲突时以 `projectlens-product-document.md` 覆盖。

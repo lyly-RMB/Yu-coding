@@ -464,6 +464,37 @@ def test_digest_hides_cases_with_any_unauthorized_evidence() -> None:
     assert digest.ongoing_cases == ()
 
 
+def test_digest_includes_new_missing_source_without_evidence() -> None:
+    store = InMemoryKnowledgeGapStore()
+    service = KnowledgeGapService(store)
+    case = service.observe(
+        candidate().model_copy(update={
+            "type": KnowledgeGapCaseType.MISSING_SOURCE,
+            "evidence_ids": (),
+            "evidence_status": "no_authorized_evidence",
+            "suggested_owner_ids": ("qa-owner",),
+        }),
+        authorized_project=PROJECT,
+        authorized_evidence_ids=frozenset(),
+        visibility_scope="project:payment:read",
+        created_by="agent",
+        now=NOW,
+    )
+    assert case is not None and case.status == KnowledgeGapStatus.CANDIDATE
+
+    bundle = KnowledgeGapDigestService(store, store).build_bundle(
+        PROJECT,
+        period_start=NOW,
+        period_end=NOW.replace(day=24),
+        authorized_evidence_ids=frozenset(),
+        authorized_owner_ids=frozenset({"qa-owner"}),
+        now=NOW,
+    )
+
+    assert [item.gap_id for item in bundle.project_digest.new_cases] == [case.id]
+    assert [item.gap_id for item in bundle.owner_digests[0].new_cases] == [case.id]
+
+
 def test_digest_bundle_scopes_owner_views_to_authorized_owner_ids() -> None:
     store = InMemoryKnowledgeGapStore()
     service = KnowledgeGapService(store)
@@ -518,6 +549,21 @@ def test_digest_notification_claim_is_idempotent_in_memory_and_sqlite(tmp_path) 
     assert not sqlite.claim_digest_notification(key, gap_id=gap_id, project=PROJECT, recipient_id="owner", event_type="knowledge_gap_digest", period_key="2026-09-23", at=NOW)
 
 
+def test_sqlite_notification_migration_repairs_existing_database(tmp_path) -> None:
+    db = SQLiteDatabase(str(tmp_path / "legacy-notifications.db"))
+    store = SQLiteKnowledgeGapStore(db)
+    db.execute("DROP TABLE knowledge_gap_notifications")
+    db.execute("DELETE FROM schema_migrations WHERE component = 'knowledge_gap' AND version = 4")
+
+    migrated = SQLiteKnowledgeGapStore(db)
+    gap_id = uuid4()
+    assert migrated.claim_digest_notification(
+        f"{gap_id}:owner:test", gap_id=gap_id, project=PROJECT,
+        recipient_id="owner", event_type="knowledge_gap_digest",
+        period_key="2026-09-23", at=NOW,
+    )
+
+
 def test_gap_actions_are_persisted_and_can_complete() -> None:
     store = InMemoryKnowledgeGapStore()
     service = KnowledgeGapService(store)
@@ -525,9 +571,60 @@ def test_gap_actions_are_persisted_and_can_complete() -> None:
     assert case is not None
     action = service.propose_action(case.id, action_type=GapActionType.ADD_SOURCE, proposed_by="owner", description="Attach QA acceptance record", target_owner_id="qa-owner", now=NOW)
     assert store.actions_for_gap(case.id) == (action,)
-    service.update_action(action.id, GapActionStatus.ACCEPTED, now=NOW)
-    completed = service.update_action(action.id, GapActionStatus.COMPLETED, now=NOW)
+    service.update_action(action.id, GapActionStatus.ACCEPTED, actor_id="owner", reason="accepted", now=NOW)
+    completed = service.update_action(action.id, GapActionStatus.COMPLETED, actor_id="owner", reason="completed", now=NOW)
     assert completed.status == GapActionStatus.COMPLETED
     assert completed.completed_at == NOW
     with pytest.raises(ValueError, match="invalid gap-action transition"):
-        service.update_action(action.id, GapActionStatus.REJECTED, now=NOW)
+        service.update_action(action.id, GapActionStatus.REJECTED, actor_id="owner", reason="rejected", now=NOW)
+
+
+def test_reopening_resolved_gap_clears_stale_resolution_note() -> None:
+    store = InMemoryKnowledgeGapStore()
+    service = KnowledgeGapService(store)
+    case = observe(service, candidate())
+    assert case is not None
+    case = service.transition(case.id, KnowledgeGapStatus.OPEN, actor_id="reviewer", reason="validated", now=NOW)
+    case = service.transition(case.id, KnowledgeGapStatus.ACKNOWLEDGED, actor_id="owner", reason="seen", now=NOW)
+    case = service.transition(case.id, KnowledgeGapStatus.ASSIGNED, actor_id="owner", reason="assigned", now=NOW)
+    case = service.transition(case.id, KnowledgeGapStatus.RESOLVED_PENDING_CHECK, actor_id="owner", reason="source added", now=NOW)
+    case = service.transition(case.id, KnowledgeGapStatus.RESOLVED, actor_id="checker", reason="verified", now=NOW)
+    reopened = service.transition(case.id, KnowledgeGapStatus.REOPENED, actor_id="checker", reason="new conflict", now=NOW)
+    assert reopened.resolution_note is None
+    assert reopened.resolved_at is None
+    assert reopened.resolved_by is None
+
+
+def test_action_status_change_requires_reason_and_records_actor() -> None:
+    store = InMemoryKnowledgeGapStore()
+    service = KnowledgeGapService(store)
+    case = observe(service, candidate())
+    assert case is not None
+    action = service.propose_action(case.id, action_type=GapActionType.ADD_SOURCE, proposed_by="owner", description="add source", now=NOW)
+    with pytest.raises(ValueError, match="require a reason"):
+        service.update_action(action.id, GapActionStatus.ACCEPTED, actor_id="owner", now=NOW)
+    updated = service.update_action(action.id, GapActionStatus.ACCEPTED, actor_id="owner", reason="approved", now=NOW)
+    assert updated.updated_by == "owner"
+    assert updated.updated_at == NOW
+    assert updated.status_reason == "approved"
+
+
+def test_missing_source_without_evidence_is_persisted_as_unverified_gap() -> None:
+    store = InMemoryKnowledgeGapStore()
+    service = KnowledgeGapService(store)
+    candidate_without_evidence = candidate().model_copy(update={
+        "type": KnowledgeGapCaseType.MISSING_SOURCE,
+        "evidence_ids": (),
+        "evidence_status": "no_authorized_evidence",
+    })
+    case = service.observe(
+        candidate_without_evidence,
+        authorized_project=PROJECT,
+        authorized_evidence_ids=frozenset(),
+        visibility_scope="project:read",
+        created_by="u1",
+        now=NOW,
+    )
+    assert case is not None
+    assert case.evidence_ids == ()
+    assert case.evidence_status == "no_authorized_evidence"

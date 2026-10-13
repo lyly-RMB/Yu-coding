@@ -10,6 +10,8 @@
 |------|------|
 | [`competition-remediation-plan.md`](competition-remediation-plan.md) | **参赛整改与交付计划**：问题、解决方法、验收标准、评测和材料清单 |
 | [`competition-test-plan.md`](competition-test-plan.md) | **参赛专项测试方案**：功能、AI 评测、安全、性能、飞书演示、试点和放行门禁 |
+| [`knowledge-loop-remediation-and-test-plan.md`](knowledge-loop-remediation-and-test-plan.md) | **知识闭环整改与测试方案**：当前问题、修复顺序、Knowledge Gap/记忆/Feishu 测试用例和发布门禁 |
+| [`knowledge-gap-daily-digest-workflow.md`](knowledge-gap-daily-digest-workflow.md) | **知识缺口现行实现**：发现、持久化、负责人私发、Digest、状态流转和通知幂等 |
 | [`projectlens-answer-pipeline-implementation-plan.md`](projectlens-answer-pipeline-implementation-plan.md) | **问答链路职责分离实施方案**：Hermes 回答正文、AnswerDraft 证据结构、死代码清理、验证与飞书展示 |
 | [`projectlens-product-document.md`](projectlens-product-document.md) | 产品定义、目标/非目标、概念、MVP、路线图 |
 | [`feishu-test-quickstart.md`](feishu-test-quickstart.md) | **新人飞书测试**：要配什么、怎么配、怎么冒烟（推荐 `scripts/start-projectlens-feishu-ws.ps1`） |

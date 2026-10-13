@@ -267,10 +267,17 @@ class ProjectAgentAskService:
             audience=request.audience,
             format=request.format,
         )
-        await self._persist_answer_gaps(executed.answer, project=project, actor=actor, scope=resolved.effective_scope, chat_id=chat_id)
+        await self._persist_answer_gaps(
+            executed.answer,
+            project=project,
+            actor=actor,
+            scope=resolved.effective_scope,
+            chat_id=chat_id,
+            tool_gaps=_extract_tool_gaps(execution.envelope),
+        )
         return envelope
 
-    async def _persist_answer_gaps(self, answer, *, project: ProjectRef, actor: ActorContext, scope, chat_id: str | None) -> None:
+    async def _persist_answer_gaps(self, answer, *, project: ProjectRef, actor: ActorContext, scope, chat_id: str | None, tool_gaps: tuple[dict[str, Any], ...] = ()) -> None:
         if self._knowledge_gap_service is None:
             return
         evidence_ids = tuple(item.evidence_ids for item in answer.claims)
@@ -283,10 +290,29 @@ class ProjectAgentAskService:
             (text, KnowledgeGapCaseType.CONFLICTING_SOURCES)
             for text in getattr(answer, "conflicts", ())
         ]
-        for text, gap_type in gap_inputs:
-            if not text or not authorized:
+        for gap in tool_gaps:
+            title = str(gap.get("title") or "").strip()
+            description = str(gap.get("description") or title).strip()
+            if title:
+                gap_inputs.append((title, KnowledgeGapCaseType.MISSING_SOURCE, description))
+        # Hermes may render the knowledge-gap report into answer_text without
+        # preserving the raw tool envelope. Keep the report durable so Digest
+        # can still notify the configured project owner.
+        if not tool_gaps and not gap_inputs and _looks_like_gap_report(answer):
+            gap_inputs.append((
+                "项目知识缺口报告待负责人补充资料",
+                KnowledgeGapCaseType.MISSING_SOURCE,
+                answer.answer_text[:4000] or "当前授权范围内发现资料缺口。",
+            ))
+        for item in gap_inputs:
+            if len(item) == 3:
+                text, gap_type, description = item
+            else:
+                text, gap_type = item
+                description = text
+            if not text or (not authorized and gap_type != KnowledgeGapCaseType.MISSING_SOURCE):
                 continue
-            candidate = KnowledgeGapCandidate(project=project, type=gap_type, title=text[:300], question=text[:2000], description=text[:4000], severity=GapSeverity.MEDIUM, evidence_ids=tuple(authorized))
+            candidate = KnowledgeGapCandidate(project=project, type=gap_type, title=text[:300], question=text[:2000], description=description[:4000], severity=GapSeverity.MEDIUM, evidence_ids=tuple(authorized), evidence_status=("authorized" if authorized else "no_authorized_evidence"), suggested_owner_ids=(("u-project-owner",) if not authorized else ()))
             try:
                 created.append(self._knowledge_gap_service.observe(candidate, authorized_project=project, authorized_evidence_ids=authorized, visibility_scope=scope.scope_id if hasattr(scope, "scope_id") else "project:read", created_by=actor.actor_id))
             except ValueError:
@@ -311,3 +337,37 @@ def detects_write_intent(question: str) -> bool:
     if not normalized:
         return False
     return any(pattern.search(normalized) for pattern in _WRITE_INTENT_PATTERNS)
+
+
+def _extract_tool_gaps(envelope: dict[str, Any] | None) -> tuple[dict[str, Any], ...]:
+    """Extract structured list_knowledge_gaps output from a Hermes envelope."""
+    found: list[dict[str, Any]] = []
+    def visit(value: Any) -> None:
+        if isinstance(value, dict):
+            gaps = value.get("gaps")
+            if isinstance(gaps, list):
+                found.extend(item for item in gaps if isinstance(item, dict))
+            for item in value.values():
+                visit(item)
+        elif isinstance(value, list):
+            for item in value:
+                visit(item)
+        elif isinstance(value, str) and '"gaps"' in value:
+            try:
+                parsed = json.loads(value)
+            except (TypeError, ValueError):
+                return
+            visit(parsed)
+    import json
+    visit(envelope or {})
+    unique: dict[str, dict[str, Any]] = {}
+    for item in found:
+        key = str(item.get("title") or item.get("description") or "").strip()
+        if key:
+            unique[key] = item
+    return tuple(unique.values())
+
+
+def _looks_like_gap_report(answer: Any) -> bool:
+    text = str(getattr(answer, "answer_text", "") or "")
+    return any(marker in text for marker in ("知识缺口", "缺少资料", "缺失证据", "项目知识库缺失"))
