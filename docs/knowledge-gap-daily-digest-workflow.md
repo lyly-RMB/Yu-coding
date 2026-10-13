@@ -604,6 +604,8 @@ notification_key = gap_id + recipient_id + event_type + period
 - 接入 Wiki 草稿和资料更新事件；
 - 实现自动复查和 reopened。
 
+当前代码已落地第一版处理动作闭环：`KnowledgeGapAction` 支持提议、接受、完成、拒绝状态，动作可持久化到 SQLite，并通过 Project Agent API 创建和更新；真实 Feishu 卡片交互与自动复查仍作为后续接入点。
+
 ### Phase 4：主动风险关联
 
 - 将高影响、长期未解决、重复出现的缺口关联到 RiskFinding；
@@ -651,4 +653,3 @@ notification_key = gap_id + recipient_id + event_type + period
 ```
 
 它不要求第一版自动修改正式需求、自动创建任务或自动更新 Wiki。第一版要先证明：ProjectLens 能把“答不上来”变成一个可追踪、可负责、可验证的项目改进事项。
-

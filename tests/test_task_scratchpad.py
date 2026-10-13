@@ -299,3 +299,49 @@ def test_scratchpad_from_answer_without_engineering() -> None:
     assert pad.phase == "Answered"
     assert pad.files_read == ()
     assert pad.allow_apply is False
+
+
+def test_task_scratchpad_from_session_ignores_bag_keys_and_nested_notes() -> None:
+    """Bag keys like runtime_access must not be dumped into notes via str()."""
+
+    from project_lens.domain.conversation import ConversationSession, ConversationSummary
+
+    project = _project()
+    nested_dump = json.dumps(
+        {
+            "phase": "Answered",
+            "notes": {"skill": "project_knowledge"},
+            "runtime_access": {"role": "developer"},
+        }
+    )
+    session = ConversationSession(
+        tenant_id="demo",
+        chat_id="oc_test",
+        user_id="u1",
+        project=project,
+        summary=ConversationSummary(project=project),
+        recent_turns=(),
+        task_scratchpad={
+            "phase": "Answered",
+            "plan": "keep me",
+            "notes": {
+                "skill": "project_knowledge",
+                "notes": nested_dump * 50,
+                "runtime_access": "{'role': 'developer'}",
+            },
+            "runtime_access": {"role": "developer", "allowed_tools": ["a"] * 100},
+            "hermes_tool_loop": {"loop_id": "x"},
+            "hermes_tool_loops": [{"loop_id": "x"}],
+        },
+    )
+    pad = task_scratchpad_from_session(session)
+    assert pad is not None
+    assert pad.phase == "Answered"
+    assert pad.plan == "keep me"
+    assert pad.notes.get("skill") == "project_knowledge"
+    assert "runtime_access" not in pad.notes
+    assert "hermes_tool_loop" not in pad.notes
+    # Nested dump must be dropped, not re-stringified into notes.
+    assert "notes" not in pad.notes
+    dumped = json.dumps(pad.model_dump(mode="json"))
+    assert len(dumped) < 5_000

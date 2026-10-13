@@ -136,3 +136,25 @@ def test_feishu_persists_chat_type_on_actor_context() -> None:
     assert context.actor.chat_type == "p2p"
     assert context.actor.source == "feishu_event"
     assert context.actor.authenticated is True
+
+
+def test_project_binding_exposes_explicit_digest_recipients_only() -> None:
+    from project_lens.domain.models import ProjectRef
+    from project_lens.integrations.feishu.identity import parse_project_bindings
+
+    project = ProjectRef(tenant_id="demo", project_id="payment")
+    mapper = parse_project_bindings(
+        json.dumps({
+            "bindings": [{
+                "tenant_key": "feishu-demo",
+                "chat_id": "oc_payment",
+                "project_id": "payment",
+                "owner_mappings": {"u_manager": "ou_manager"},
+            }],
+        }),
+        default_project=project,
+        registered_projects=(project,),
+    )
+    assert mapper.project_chat_id(project) == "oc_payment"
+    assert mapper.owner_open_id(project, "u_manager") == "ou_manager"
+    assert mapper.owner_open_id(project, "u_unknown") is None

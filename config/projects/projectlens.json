@@ -80,12 +80,23 @@
       "tenant_key": "feishu-demo",
       "chat_id": "hermes-chat",
       "visibility": "team_shared"
+    },
+    {
+      "tenant_key": "19004649d11cdbe0",
+      "chat_id": "oc_f58ad5cc09f4d9e7b17ea4916e66ec82",
+      "visibility": "team_shared"
     }
   ],
   "default_skill_guides": ["project_intro"],
   "members": [
     {"actor_id": "u1", "roles": ["developer"]},
-    {"actor_id": "hermes-user", "roles": ["developer"]}
+    {"actor_id": "hermes-user", "roles": ["developer"]},
+    {"actor_id": "ou_287cf34ee1e60e7b44a8c562562dbe41", "roles": ["developer"]},
+    {"actor_id": "virtual-developer", "roles": ["developer"]},
+    {"actor_id": "virtual-product", "roles": ["product"]},
+    {"actor_id": "virtual-qa", "roles": ["qa"]},
+    {"actor_id": "virtual-manager", "roles": ["manager"]},
+    {"actor_id": "virtual-ops", "roles": ["ops"]}
   ],
   "role_policies": [
     {
@@ -131,6 +142,38 @@
       "answer_depth": "detailed",
       "answer_style": "technical",
       "visibility_level": "team_shared"
+    },
+    {
+      "actor_id": "ou_287cf34ee1e60e7b44a8c562562dbe41",
+      "role": "developer",
+      "readable_sources": ["src/", "docs/", "tests/", "config/", "knowledge/", "README.md"],
+      "allowed_tools": [
+        "search_context",
+        "read_project_file",
+        "list_project_files",
+        "authorized_evidence",
+        "list_knowledge_gaps",
+        "search_wiki",
+        "read_wiki_page",
+        "sync_sources",
+        "export_obsidian",
+        "lint_wiki",
+        "import_obsidian_inbox",
+        "propose_wiki_update",
+        "search_project_memory",
+        "get_memory_detail",
+        "search_project_history",
+        "get_run_detail",
+        "get_citation_body",
+        "propose_test_plan",
+        "propose_risk_escalation",
+        "propose_project_todo",
+        "verify_evidence_links"
+      ],
+      "forbidden_sources": ["secrets/", ".env", "*.db", ".git/"],
+      "answer_depth": "detailed",
+      "answer_style": "technical",
+      "visibility_level": "team_shared"
     }
   ],
   "chat_visibility_policies": [
@@ -170,6 +213,35 @@
         "lint_wiki",
         "import_obsidian_inbox",
         "propose_wiki_update"
+      ]
+    },
+    {
+      "chat_id": "oc_f58ad5cc09f4d9e7b17ea4916e66ec82",
+      "visibility_level": "team_shared",
+      "allowed_roles": ["developer", "qa", "guest", "manager", "ops", "product"],
+      "readable_sources": ["src/", "docs/", "tests/", "config/", "knowledge/", "README.md"],
+      "allowed_tools": [
+        "search_context",
+        "read_project_file",
+        "list_project_files",
+        "authorized_evidence",
+        "list_knowledge_gaps",
+        "search_wiki",
+        "read_wiki_page",
+        "sync_sources",
+        "export_obsidian",
+        "lint_wiki",
+        "import_obsidian_inbox",
+        "propose_wiki_update",
+        "search_project_memory",
+        "get_memory_detail",
+        "search_project_history",
+        "get_run_detail",
+        "get_citation_body",
+        "propose_test_plan",
+        "propose_risk_escalation",
+        "propose_project_todo",
+        "verify_evidence_links"
       ]
     }
   ]

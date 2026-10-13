@@ -72,7 +72,7 @@ class ContextGovernorConfig:
     tool_schema_tokens: int = 2_500
     provider_overhead_tokens: int = 1_000
     chars_per_token: float = 4.0
-    max_recovery_retries: int = 1
+    max_recovery_retries: int = 2
 
     def __post_init__(self) -> None:
         if self.model_context_limit_tokens < 1_000:

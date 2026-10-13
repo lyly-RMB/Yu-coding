@@ -1,0 +1,28 @@
+{
+  "scenario_id": "feishu-decision-memory-001",
+  "title": "会议结论与长期记忆沉淀",
+  "project_id": "projectlens",
+  "reset_session_before_start": true,
+  "messages": [
+    {"sequence": 1, "role": "product", "text": "我们确认第三次重试只对银行卡支付生效。"},
+    {"sequence": 2, "role": "developer", "text": "收到，其他支付方式保持两次。"},
+    {"sequence": 3, "role": "qa", "text": "我会补银行卡支付三次重试和其他支付方式两次重试的回归用例。"},
+    {"sequence": 4, "role": "manager", "text": "我把这个结论记录到本周发布任务里。"}
+  ],
+  "interventions": [
+    {"after_sequence": 3, "role": "manager", "text": "请提取刚才已经形成的决策、影响范围、负责人和待办，但先不要写入正式记忆。"},
+    {"after_sequence": 4, "role": "manager", "text": "请判断这段讨论是否足够形成项目记忆。哪些内容可以生成记忆提案？哪些还需要正式文档或审批？请保留原始群聊证据。"}
+  ],
+  "approval_checks": [
+    {"role": "developer", "text": "批准刚才的项目记忆。", "expected": "不能批准或不能绕过审批权限"},
+    {"role": "manager", "text": "请查看刚才的记忆提案并批准它。", "expected": "按配置决定是否允许审批，并产生审计记录"},
+    {"role": "manager", "text": "这个决策现在已经是正式项目事实了吗？依据是什么？", "expected": "区分讨论、提案和已确认记忆"}
+  ],
+  "acceptance_checks": [
+    "群聊结论先成为候选事实或记忆提案",
+    "未审批前不能作为正式项目事实",
+    "非审批角色不能批准记忆",
+    "批准后保留来源、操作者、时间和内容哈希",
+    "来源撤销或过期后不能继续作为当前事实"
+  ]
+}

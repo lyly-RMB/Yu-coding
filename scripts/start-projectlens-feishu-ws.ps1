@@ -6,13 +6,14 @@
 .DESCRIPTION
   Context-manager path:
     Feishu @ / card click
-      -> ProjectLens Feishu WS (long connection)
+      -> ProjectLens API embedded FeishuLongConnection
       -> POST localhost /api/v1/feishu/events
       -> preview card / card actions
       -> 「直接回答」 runs Hermes inside ProjectLens
 
-  Do NOT run any other Feishu long-connection client for the same app
-  (only one WS per app). Docs: docs/feishu-test-quickstart.md
+  This script starts only the ProjectLens API. The API owns the single
+  Feishu long connection; standalone Hermes Gateway and ws_ingress are not used.
+  Docs: docs/feishu-test-quickstart.md
 
   Feishu open platform:
     事件 + 回调 both use 「长连接」
@@ -26,7 +27,8 @@
 param(
     [string]$ProjectLensRoot = "",
     [string]$PythonExe = "",
-    [switch]$SkipApiStart
+    [switch]$SkipApiStart,
+    [switch]$Foreground
 )
 
 $ErrorActionPreference = "Stop"
@@ -58,7 +60,8 @@ if (-not $ProjectLensRoot) {
 Set-Location $ProjectLensRoot
 $PythonExe = Resolve-PythonExe -Preferred $PythonExe
 
-# Stop conflicting processes: Hermes Feishu gateway + cloudflared tunnels.
+# Stop conflicting processes: standalone Hermes Feishu gateway, legacy WS
+# ingress, and cloudflared tunnels. ProjectLens API owns Feishu ingress.
 Get-CimInstance Win32_Process -Filter "Name='python.exe'" |
     Where-Object { $_.CommandLine -match 'hermes_cli|gateway run' } |
     ForEach-Object {
@@ -89,12 +92,15 @@ if (-not $apiReady) {
         throw "ProjectLens API not ready on :8000 and -SkipApiStart was set."
     }
     Write-Host "Starting ProjectLens API on :8000 ..." -ForegroundColor Cyan
-    Start-Process -FilePath $PythonExe -ArgumentList @(
+    $apiProcess = Start-Process -FilePath $PythonExe -ArgumentList @(
         "-m", "uvicorn", "project_lens.main:app",
-        "--host", "127.0.0.1", "--port", "8000"
-    ) -WorkingDirectory $ProjectLensRoot -WindowStyle Minimized
+        "--host", "127.0.0.1", "--port", "8000", "--log-level", "info"
+    ) -WorkingDirectory $ProjectLensRoot -WindowStyle $(if ($Foreground) { "Normal" } else { "Minimized" }) -PassThru
     for ($i = 0; $i -lt 30; $i++) {
         Start-Sleep -Seconds 1
+        if ($apiProcess.HasExited) {
+            throw "ProjectLens API exited during startup (pid=$($apiProcess.Id), exit=$($apiProcess.ExitCode)). Run uvicorn manually in this directory to see the startup error."
+        }
         try {
             $null = Invoke-WebRequest -Uri "http://127.0.0.1:8000/api/v1/health" -UseBasicParsing -TimeoutSec 2
             $apiReady = $true
@@ -104,8 +110,21 @@ if (-not $apiReady) {
     if (-not $apiReady) { throw "ProjectLens API did not become ready on :8000" }
 }
 
-$status = (Invoke-WebRequest -Uri "http://127.0.0.1:8000/api/v1/integrations/feishu/status" -UseBasicParsing -TimeoutSec 5).Content
-Write-Host "Feishu status: $status" -ForegroundColor DarkGray
+$status = $null
+for ($i = 0; $i -lt 30; $i++) {
+    $statusResponse = Invoke-WebRequest -Uri "http://127.0.0.1:8000/api/v1/integrations/feishu/status" -UseBasicParsing -TimeoutSec 5
+    $status = $statusResponse.Content | ConvertFrom-Json
+    Write-Host ("Feishu status: configured={0}, long_connection={1}, status={2}, hermes_bridge={3}" -f $status.configured, $status.long_connection_enabled, $status.long_connection_status, $status.hermes_bridge_active) -ForegroundColor DarkGray
+    if (-not $status.configured) { throw "Feishu is not configured. Check PROJECT_LENS_FEISHU_APP_ID/APP_SECRET/VERIFICATION_TOKEN and project bindings." }
+    if ($status.long_connection_status -eq "connected") { break }
+    if ($status.long_connection_status -eq "error" -or $status.long_connection_status -eq "stopped") {
+        throw "Feishu long connection failed (status=$($status.long_connection_status)). Check the API startup output and Feishu app long-connection settings."
+    }
+    Start-Sleep -Seconds 1
+}
+if ($null -eq $status -or $status.long_connection_status -ne "connected") {
+    throw "Feishu long connection did not become connected within 30 seconds (last status=$($status.long_connection_status))."
+}
 
 # Ensure lark-oapi is importable.
 & $PythonExe -c "import lark_oapi" 2>$null
@@ -117,12 +136,14 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host ""
 Write-Host "ProjectLens Feishu LONG-CONNECTION mode (preview cards)" -ForegroundColor Cyan
 Write-Host "  API:     http://127.0.0.1:8000"
-Write-Host "  Ingress: python -m project_lens.integrations.feishu.ws_ingress"
+Write-Host "  Ingress: ProjectLens API embedded FeishuLongConnection"
 Write-Host "  Hermes:  inside ProjectLens on 「直接回答」 only"
+Write-Host "  Gateway: disabled (standalone Hermes Feishu Gateway is stopped)"
 Write-Host ""
 Write-Host "Feishu console must use 长连接 for 事件 + 回调 (not HTTP request URL)." -ForegroundColor Yellow
-Write-Host "Do not run Hermes Feishu gateway / cloudflared alongside this." -ForegroundColor Yellow
-Write-Host ""
-Write-Host "Starting WS ingress (Ctrl+C stops ingress only)..." -ForegroundColor Green
+Write-Host "Only this ProjectLens API may connect to the Feishu app." -ForegroundColor Green
 
-& $PythonExe -m project_lens.integrations.feishu.ws_ingress
+Write-Host "Startup verified. Keep this PowerShell window open while testing." -ForegroundColor Green
+if ($Foreground) {
+    Write-Host "Foreground mode: API is running in its own console; press Ctrl+C there to stop it." -ForegroundColor Yellow
+}

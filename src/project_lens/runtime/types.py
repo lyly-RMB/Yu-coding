@@ -72,7 +72,7 @@ class ModelResponse:
 
 
 class ModelProvider(Protocol):
-    """AgentLoop chat/tools provider (message history).
+    """Chat/tools provider used by ToolRegistry-backed runtimes.
 
     Distinct from ``workflow.providers.ModelProvider``, which completes from a
     ``ContextPrompt`` for ProjectWorkflow harness runs.

@@ -84,10 +84,29 @@ def _message_payload(*, event_id: str, text: str) -> dict[str, object]:
     }
 
 
+def _confirm(client, *, session_id: str, event_id: str) -> dict[str, object]:
+    response = client.post(
+        "/api/v1/feishu/events",
+        json={
+            "schema": "2.0",
+            "token": LOCAL_TOKEN,
+            "header": {"event_id": event_id, "event_type": "card.action.trigger", "tenant_key": "demo"},
+            "event": {
+                "operator": {"open_id": "u1"},
+                "action": {"tag": "button", "value": {"action": "context_direct_answer", "session_id": session_id}},
+                "context": {"open_chat_id": "chat-1", "chat_type": "group"},
+            },
+        },
+    )
+    assert response.status_code == 200
+    return response.json()
+
+
 def test_feishu_url_verification_challenge() -> None:
     app = create_app()
     _configure_verifier(app)
-    response = TestClient(app).post(
+    client = TestClient(app)
+    response = client.post(
         "/api/v1/feishu/events",
         json={"type": "url_verification", "token": LOCAL_TOKEN, "challenge": "challenge-token"},
     )
@@ -116,33 +135,105 @@ def test_feishu_signed_event_requires_valid_signature() -> None:
 def test_feishu_project_question_creates_real_hermes_run_and_card() -> None:
     app = create_app()
     _configure_verifier(app)
-    response = TestClient(app).post(
+    client = TestClient(app)
+    response = client.post(
         "/api/v1/feishu/events",
         json=_message_payload(event_id="project-question", text="介绍一下这个项目"),
     )
     assert response.status_code == 200
-    run = app.state.run_service.get(UUID(response.json()["run_id"]))
+    assert response.json()["pending"] is True
+    confirmed = _confirm(client, session_id=response.json()["session_id"], event_id="project-question-confirm")
+    run = app.state.run_service.get(UUID(confirmed["run_id"]))
     assert run is not None
     assert run.runtime == "hermes"
-    assert run.entry_mode == "natural_project_question"
+    assert run.entry_mode == "feishu_context_preview_direct"
     assert run.hermes_loop_id is not None
     assert run.answer is not None
     assert app.state.event_sink.for_run(run.id)
-    assert len(app.state.feishu_messenger.messages) == 1
-    assert app.state.feishu_messenger.messages[0].message_type == "text"
+    assert len(app.state.feishu_messenger.messages) == 2
+    assert app.state.feishu_messenger.messages[0].message_type == "interactive"
+    assert app.state.feishu_messenger.messages[1].message_type == "text"
+
+
+def test_feishu_project_question_skips_preview_when_disabled() -> None:
+    app = create_app()
+    _configure_verifier(app)
+    app.state.feishu_event_service._context_preview_enabled = False
+    client = TestClient(app)
+    response = client.post(
+        "/api/v1/feishu/events",
+        json=_message_payload(event_id="preview-off", text="介绍一下这个项目"),
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "accepted"
+    assert body.get("pending") is not True
+    assert "run_id" in body
+    run = app.state.run_service.get(UUID(body["run_id"]))
+    assert run is not None
+    assert run.entry_mode == "feishu_context_preview_bypass"
+    types = [m.message_type for m in app.state.feishu_messenger.messages]
+    assert "text" in types
+    assert "interactive" not in types
+    assert any(
+        "收到" in str(m.content.get("text") or "")
+        for m in app.state.feishu_messenger.messages
+        if m.message_type == "text"
+    )
+
+
+def test_context_manager_is_opt_in_when_global_preview_is_disabled() -> None:
+    app = create_app()
+    _configure_verifier(app)
+    app.state.feishu_event_service._context_preview_enabled = False
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/v1/feishu/events",
+        json=_message_payload(event_id="context-opt-in", text="/context 介绍一下这个项目"),
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "accepted"
+    assert body["pending"] is True
+    assert "run_id" not in body
+    assert app.state.feishu_messenger.messages[0].message_type == "interactive"
+
+
+def test_normal_question_runs_without_preview_when_global_preview_is_disabled() -> None:
+    app = create_app()
+    _configure_verifier(app)
+    app.state.feishu_event_service._context_preview_enabled = False
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/v1/feishu/events",
+        json=_message_payload(event_id="context-default", text="介绍一下这个项目"),
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "accepted"
+    assert body.get("pending") is not True
+    assert "run_id" in body
+    assert app.state.run_service.get(UUID(body["run_id"])) is not None
 
 
 def test_feishu_debug_project_command_is_hermes_and_keeps_run_id() -> None:
     app = create_app()
     _configure_verifier(app)
-    response = TestClient(app).post(
+    client = TestClient(app)
+    response = client.post(
         "/api/v1/feishu/events",
         json=_message_payload(event_id="debug", text="/project introduce this project"),
     )
-    run = app.state.run_service.get(UUID(response.json()["run_id"]))
+    assert response.json()["pending"] is True
+    confirmed = _confirm(client, session_id=response.json()["session_id"], event_id="debug-confirm")
+    run = app.state.run_service.get(UUID(confirmed["run_id"]))
     assert run is not None
     assert run.runtime == "hermes"
-    assert run.entry_mode == "debug_slash"
+    assert run.entry_mode == "feishu_context_preview_direct"
     assert run.question == "introduce this project"
 
 
@@ -151,9 +242,11 @@ def test_feishu_followup_binds_to_latest_hermes_run() -> None:
     _configure_verifier(app)
     client = TestClient(app)
     first = client.post("/api/v1/feishu/events", json=_message_payload(event_id="followup-1", text="介绍一下这个项目"))
+    first_confirmed = _confirm(client, session_id=first.json()["session_id"], event_id="followup-1-confirm")
     second = client.post("/api/v1/feishu/events", json=_message_payload(event_id="followup-2", text="那负责人是谁？"))
-    first_id = UUID(first.json()["run_id"])
-    second_id = UUID(second.json()["run_id"])
+    second_confirmed = _confirm(client, session_id=second.json()["session_id"], event_id="followup-2-confirm")
+    first_id = UUID(first_confirmed["run_id"])
+    second_id = UUID(second_confirmed["run_id"])
     project = ProjectRef(tenant_id="demo", project_id="payment", service="order-service", environment="production")
     session = app.state.conversation_store.get_by_binding(tenant_id="demo", chat_id="chat-1", user_id="u1", project=project)
     assert session is not None
@@ -167,8 +260,9 @@ def test_feishu_role_view_reuses_completed_hermes_run() -> None:
     _configure_verifier(app)
     client = TestClient(app)
     first = client.post("/api/v1/feishu/events", json=_message_payload(event_id="role-1", text="介绍一下这个项目"))
+    first_confirmed = _confirm(client, session_id=first.json()["session_id"], event_id="role-1-confirm")
     second = client.post("/api/v1/feishu/events", json=_message_payload(event_id="role-2", text="发给产品看"))
-    assert second.json()["run_id"] == first.json()["run_id"]
+    assert second.json()["run_id"] == first_confirmed["run_id"]
 
 
 def test_feishu_sync_status_and_chitchat_do_not_create_agent_runs() -> None:

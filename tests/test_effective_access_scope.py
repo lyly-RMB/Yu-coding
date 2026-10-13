@@ -33,7 +33,7 @@ def _developer_group_project(tmp_path: Path) -> Path:
                         "allowed_tools": [
                             "search_context",
                             "read_project_file",
-                            "query_graph",
+                            "authorized_evidence",
                         ],
                         "answer_depth": "detailed",
                         "answer_style": "technical",

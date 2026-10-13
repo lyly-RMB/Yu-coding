@@ -5,10 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-from project_lens.domain.models import FrozenModel, ProjectRef
 
-
-ActorSource = Literal["feishu_event", "service_token", "test_fixture"]
+ActorSource = Literal["feishu_event", "feishu_virtual_test", "service_token", "test_fixture"]
 ChatType = Literal["p2p", "group"]
 
 
@@ -25,6 +23,7 @@ class ActorContext:
     chat_type: ChatType
     source: ActorSource
     authenticated: bool
+    physical_actor_id: str | None = None
 
     def __post_init__(self) -> None:
         if not self.tenant_key.strip():
@@ -35,16 +34,7 @@ class ActorContext:
             raise ValueError("chat_id is required")
         if self.chat_type not in {"p2p", "group"}:
             raise ValueError(f"unsupported chat_type: {self.chat_type}")
-        if self.source not in {"feishu_event", "service_token", "test_fixture"}:
+        if self.source not in {"feishu_event", "feishu_virtual_test", "service_token", "test_fixture"}:
             raise ValueError(f"unsupported actor source: {self.source}")
-
-
-class TrustedActorContext(FrozenModel):
-    """Server-resolved identity and effective scope for memory APIs."""
-
-    actor_id: str
-    project: ProjectRef
-    chat_id: str
-    scope: object
-    identity_source: str
-    policy_version: str
+        if self.source == "feishu_virtual_test" and not (self.physical_actor_id or "").strip():
+            raise ValueError("virtual Feishu actor requires a physical actor id")

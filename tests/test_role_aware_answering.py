@@ -135,7 +135,7 @@ def _scope(role: RoleKind) -> EffectiveAccessScope:
         chat_id="oc_rq204",
         role=role,
         readable_sources=("knowledge/", "src/", "tests/"),
-        allowed_tools=("search_context", "read_project_file", "query_graph"),
+        allowed_tools=("search_context", "read_project_file", "authorized_evidence"),
         forbidden_sources=(),
         answer_depth=AnswerDepth.BALANCED,
         answer_style=role.value,

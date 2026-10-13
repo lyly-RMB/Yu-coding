@@ -60,75 +60,6 @@ class ToolGateway:
         )
         return files
 
-    def grep_project_code(
-        self,
-        pattern: str,
-        *,
-        prefix: str = "src/",
-        limit: int = 20,
-    ) -> list[dict[str, Any]]:
-        assert_tool_callable("grep_project_code", allow_apply=self.policy.allow_apply)
-        hits = self._grep_hits(pattern, prefix=prefix, limit=limit)
-        self._audit(
-            "grep_project_code",
-            RiskClass.READ,
-            {"pattern": pattern[:120], "hit_count": len(hits)},
-            json.dumps(hits[:10], ensure_ascii=False),
-            True,
-        )
-        return hits
-
-    def search_project_code(
-        self,
-        pattern: str,
-        *,
-        prefix: str = "src/",
-        limit: int = 20,
-    ) -> list[dict[str, Any]]:
-        assert_tool_callable("search_project_code", allow_apply=self.policy.allow_apply)
-        hits = self._grep_hits(pattern, prefix=prefix, limit=limit)
-        self._audit(
-            "search_project_code",
-            RiskClass.READ,
-            {"pattern": pattern[:120], "hit_count": len(hits)},
-            json.dumps(hits[:10], ensure_ascii=False),
-            True,
-        )
-        return hits
-
-    def read_project_file_range(
-        self,
-        relative_path: str,
-        *,
-        start_line: int = 1,
-        end_line: int = 80,
-    ) -> dict[str, Any]:
-        assert_tool_callable("read_project_file_range", allow_apply=self.policy.allow_apply)
-        path = self.policy.resolve_path(relative_path)
-        lines = path.read_text(encoding="utf-8").splitlines()
-        start = max(1, int(start_line))
-        end = max(start, min(int(end_line), len(lines)))
-        slice_lines = lines[start - 1 : end]
-        content = "\n".join(slice_lines)
-        payload = {
-            "path": relative_path.replace("\\", "/").lstrip("./"),
-            "start_line": start,
-            "end_line": end,
-            "content": content[:8000],
-        }
-        self._audit(
-            "read_project_file_range",
-            RiskClass.READ,
-            {
-                "path": payload["path"],
-                "start_line": start,
-                "end_line": end,
-            },
-            content[:2000],
-            True,
-        )
-        return payload
-
     def _normalize_prefix(self, prefix: str) -> str:
         cleaned = prefix.replace("\\", "/").lstrip("./") or "src/"
         if not cleaned.endswith("/"):
@@ -159,48 +90,6 @@ class ToolGateway:
             if len(files) >= limit:
                 break
         return files
-
-    def _grep_hits(
-        self,
-        pattern: str,
-        *,
-        prefix: str = "src/",
-        limit: int = 20,
-    ) -> list[dict[str, Any]]:
-        import re
-
-        cleaned = self._normalize_prefix(prefix)
-        root = self.policy.project_root
-        base = (root / cleaned).resolve()
-        regex = re.compile(pattern)
-        hits: list[dict[str, Any]] = []
-        cap = max(1, min(limit, 100))
-        if not base.is_dir():
-            return hits
-        for path in sorted(base.rglob("*")):
-            if not path.is_file():
-                continue
-            rel = path.relative_to(root).as_posix()
-            try:
-                self.policy.resolve_path(rel)
-            except PermissionError:
-                continue
-            try:
-                text = path.read_text(encoding="utf-8")
-            except OSError:
-                continue
-            for line_no, line in enumerate(text.splitlines(), start=1):
-                if regex.search(line):
-                    hits.append(
-                        {
-                            "path": rel,
-                            "line": line_no,
-                            "text": line[:240],
-                        }
-                    )
-                    if len(hits) >= cap:
-                        return hits
-        return hits
 
     def create_patch_plan(
         self,

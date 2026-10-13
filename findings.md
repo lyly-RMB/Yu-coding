@@ -91,6 +91,13 @@
 
 ## Source plan
 
+## 2026-10-11 Answer pipeline findings
+
+- The current three-role requirement is only injected as contextual prose; `AnswerDraft` has no role-summary fields.
+- `AnswerDraft.from_json_text()` ignores unknown role keys, so Hermes output such as `product_summary` is discarded before verification.
+- `ProjectAnswer` carries only business/technical summaries, and Feishu renderers label the main body as `一句话结论`, which makes the presentation look like a one-line contract even when the model returned more content.
+- The compatible fix is additive: optional role sections for summary questions, natural `business_summary` for ordinary questions, and a renderer that displays the complete answer without forcing role sections when absent.
+
 - `docs/hermes-only-migration-plan.md` defines Hermes as the only production decision runtime.
 - Required execution chain: trusted identity and scope -> Hermes runtime -> guarded tools -> AnswerDraft -> verifier -> ProjectAnswer/AudienceView.
 - Legacy workflow and read-agent paths remain test/evaluation fixtures until their capabilities are migrated and regression coverage is established.

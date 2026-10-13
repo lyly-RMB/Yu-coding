@@ -31,9 +31,10 @@ def make_evidence() -> Evidence:
     )
 
 
-def test_factual_claim_requires_evidence() -> None:
-    with pytest.raises(ValidationError, match="factual claims require"):
-        Claim(text="The release caused the incident", type=ClaimType.FACT)
+def test_factual_claim_may_omit_evidence() -> None:
+    claim = Claim(text="The release caused the incident", type=ClaimType.FACT)
+    assert claim.evidence_ids == ()
+    assert claim.type == ClaimType.FACT
 
 
 def test_project_answer_rejects_unknown_evidence_reference() -> None:

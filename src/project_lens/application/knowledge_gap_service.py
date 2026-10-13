@@ -13,6 +13,8 @@ from project_lens.domain.knowledge_gap import (
     KnowledgeGapCandidate,
     KnowledgeGapCase,
     KnowledgeGapObservation,
+    KnowledgeGapRecheck,
+    KnowledgeGapRecheckJob,
     KnowledgeGapStateEvent,
     GapActionStatus, KnowledgeGapAction,
     KnowledgeGapStatus,
@@ -26,6 +28,74 @@ from project_lens.domain.models import KnowledgeGapReport, KnowledgeGapType
 class KnowledgeGapService:
     def __init__(self, store: KnowledgeGapStore) -> None:
         self._store = store
+
+    def get_case(self, gap_id: UUID) -> KnowledgeGapCase | None:
+        return self._store.get(gap_id)
+
+    def get_action(self, action_id: UUID) -> KnowledgeGapAction | None:
+        return self._store.get_action(action_id)
+
+    def record_recheck(self, recheck: KnowledgeGapRecheck) -> None:
+        self._store.save_recheck(recheck)
+
+    def rechecks_for_gap(self, gap_id: UUID) -> tuple[KnowledgeGapRecheck, ...]:
+        return self._store.rechecks_for_gap(gap_id)
+
+    def enqueue_source_rechecks(
+        self, *, project: ProjectRef, source_ref: str, revision: str,
+        now: datetime | None = None,
+    ) -> tuple[KnowledgeGapRecheckJob, ...]:
+        if not source_ref.strip() or not revision.strip():
+            return ()
+        at = _utc(now or datetime.now(timezone.utc))
+        jobs: list[KnowledgeGapRecheckJob] = []
+        for case in self._store.list_for_project(project):
+            if source_ref not in case.source_refs or case.status not in {
+                KnowledgeGapStatus.OPEN, KnowledgeGapStatus.ACKNOWLEDGED,
+                KnowledgeGapStatus.ASSIGNED, KnowledgeGapStatus.WAITING_FOR_SOURCE,
+                KnowledgeGapStatus.RESOLVED_PENDING_CHECK, KnowledgeGapStatus.REOPENED,
+            }:
+                continue
+            key = f"{project.tenant_id}:{project.project_id}:{source_ref}:{revision}:{case.id}"
+            job = KnowledgeGapRecheckJob(
+                idempotency_key=key, gap_id=case.id, project=case.project,
+                source_ref=source_ref, revision=revision,
+                created_at=at, updated_at=at,
+            )
+            stored = self._store.enqueue_recheck_job(job)
+            if stored is not None:
+                jobs.append(stored)
+        return tuple(jobs)
+
+    def list_recheck_jobs(self, project: ProjectRef, *, retry_failed: bool = True) -> tuple[KnowledgeGapRecheckJob, ...]:
+        return self._store.list_recheck_jobs(project, retry_failed=retry_failed)
+
+    def update_recheck_job(self, job: KnowledgeGapRecheckJob) -> None:
+        self._store.update_recheck_job(job)
+
+    def claim_notification(
+        self,
+        notification_key: str,
+        *,
+        gap_id: UUID,
+        project: ProjectRef,
+        recipient_id: str,
+        event_type: str,
+        period_key: str,
+        at: datetime,
+    ) -> bool:
+        case = self._store.get(gap_id)
+        if case is None or not _same_project(case.project, project):
+            raise KeyError(f"knowledge gap not found: {gap_id}")
+        return self._store.claim_digest_notification(
+            notification_key,
+            gap_id=gap_id,
+            project=project,
+            recipient_id=recipient_id,
+            event_type=event_type,
+            period_key=period_key,
+            at=_utc(at),
+        )
 
     def observe(
         self,
@@ -62,6 +132,7 @@ class KnowledgeGapService:
                 impact=candidate.impact,
                 target_ref=candidate.target_ref,
                 evidence_ids=tuple(dict.fromkeys(candidate.evidence_ids)),
+                source_refs=tuple(dict.fromkeys(candidate.source_refs)),
                 conflicting_source_ids=tuple(dict.fromkeys(candidate.conflicting_source_ids)),
                 suggested_source_type=candidate.suggested_source_type,
                 suggested_owner_ids=tuple(dict.fromkeys(candidate.suggested_owner_ids)),
@@ -81,6 +152,7 @@ class KnowledgeGapService:
                 ),
                 "severity": _max_severity(current.severity, candidate.severity),
                 "evidence_ids": tuple(dict.fromkeys((*current.evidence_ids, *candidate.evidence_ids))),
+                "source_refs": tuple(dict.fromkeys((*current.source_refs, *candidate.source_refs))),
                 "conflicting_source_ids": tuple(dict.fromkeys((*current.conflicting_source_ids, *candidate.conflicting_source_ids))),
                 "suggested_owner_ids": tuple(dict.fromkeys((*current.suggested_owner_ids, *candidate.suggested_owner_ids))),
                 "status": KnowledgeGapStatus.REOPENED if current.status == KnowledgeGapStatus.RESOLVED else current.status,
@@ -191,6 +263,14 @@ class KnowledgeGapService:
         action = self._store.get_action(action_id)
         if action is None:
             raise KeyError(f"knowledge gap action not found: {action_id}")
+        allowed = {
+            GapActionStatus.PROPOSED: {GapActionStatus.ACCEPTED, GapActionStatus.REJECTED},
+            GapActionStatus.ACCEPTED: {GapActionStatus.COMPLETED, GapActionStatus.REJECTED},
+            GapActionStatus.COMPLETED: set(),
+            GapActionStatus.REJECTED: set(),
+        }
+        if status != action.status and status not in allowed[action.status]:
+            raise ValueError(f"invalid gap-action transition: {action.status.value} -> {status.value}")
         updated = action.model_copy(update={"status": status, "completed_at": _utc(now or datetime.now(timezone.utc)) if status == GapActionStatus.COMPLETED else action.completed_at})
         self._store.save_action(updated)
         return updated
@@ -203,6 +283,15 @@ def _require_project(candidate: ProjectRef, authorized: ProjectRef) -> None:
         raise ValueError("candidate service is outside the authorized project scope")
     if authorized.environment is not None and candidate.environment not in {None, authorized.environment}:
         raise ValueError("candidate environment is outside the authorized project scope")
+
+
+def _same_project(left: ProjectRef, right: ProjectRef) -> bool:
+    return (
+        left.tenant_id == right.tenant_id
+        and left.project_id == right.project_id
+        and (right.service is None or left.service == right.service)
+        and (right.environment is None or left.environment == right.environment)
+    )
 
 
 def _max_severity(left, right):

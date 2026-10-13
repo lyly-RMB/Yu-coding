@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from project_lens.context.retrieval.exact import TracebackHint, matching_traceback_frame, parse_traceback
-from project_lens.domain.models import ActionProposal, Evidence, EvidenceType, ProjectAnswer, ProjectRef
+from project_lens.domain.models import ActionProposal, Evidence, EvidenceType, ProjectAnswer
 from project_lens.workflow.engineering_skill import EngineeringProposal, ProjectEngineeringSkill
 from project_lens.workflow.skills import ProjectSkill
 
@@ -88,10 +88,3 @@ def _normalize_src_path(file_name: str) -> str:
     if cleaned.startswith("src/"):
         return cleaned
     return f"src/{Path(cleaned).name}"
-
-
-def engineering_root_for_project(
-    project: ProjectRef,
-    roots: dict[tuple[str, str], Path],
-) -> Path | None:
-    return roots.get((project.tenant_id, project.project_id))

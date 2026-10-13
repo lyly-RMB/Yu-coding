@@ -83,6 +83,13 @@ def render_audience_view(
     facts = answer.facts or tuple(
         item for item in answer.claims if item.type == ClaimType.FACT
     )
+    # Hermes presentation text is not a role-specific fact. Some legacy
+    # envelopes repeated the complete answer in ``facts``; suppress that
+    # duplicate from audience sections while retaining the verified claim in
+    # the ProjectAnswer/evidence payload.
+    answer_text = (answer.answer_text or "").strip()
+    if answer_text:
+        facts = tuple(item for item in facts if item.text.strip() != answer_text)
     inferences = answer.inferences or tuple(
         item for item in answer.claims if item.type == ClaimType.INFERENCE
     )
@@ -94,8 +101,8 @@ def render_audience_view(
     actions = answer.next_actions or tuple(
         item.title for item in answer.recommended_actions if item.title.strip()
     )
-    conclusion = answer.conclusion or answer.business_summary or (
-        facts[0].text if facts else "当前资料不足，尚不能形成带引用结论。"
+    conclusion = answer.answer_text or answer.conclusion or answer.business_summary or (
+        facts[0].text if facts else "暂无结论。"
     )
 
     sections = _sections_for_role(

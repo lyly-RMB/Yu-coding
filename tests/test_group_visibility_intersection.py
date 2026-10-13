@@ -39,7 +39,7 @@ def test_group_intersection_never_expands_role_scope() -> None:
         project=project,
         chat_type="group",
         readable_sources=("src/", "knowledge/", "docs/"),
-        allowed_tools=("search_context", "read_project_file", "query_graph"),
+        allowed_tools=("search_context", "read_project_file", "authorized_evidence"),
     )
     scope = combine_role_and_chat_policy(
         role_policy=role,
@@ -196,7 +196,7 @@ def test_group_cannot_read_src_via_read_project_file(tmp_path: Path) -> None:
                         "allowed_tools": [
                             "search_context",
                             "read_project_file",
-                            "query_graph",
+                            "authorized_evidence",
                         ],
                     }
                 ],

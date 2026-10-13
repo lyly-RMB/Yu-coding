@@ -3,8 +3,40 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def apply_hermes_runtime_env(env_file: str | Path = ".env") -> None:
+    """Copy HERMES_* keys from ``.env`` into ``os.environ`` when unset.
+
+    Hermes watchdog helpers (for example ``HERMES_CODEX_EVENT_STALE_TIMEOUT_SECONDS``)
+    read process env directly. ProjectLens Settings only binds ``PROJECT_LENS_*``,
+    so values written in ``.env`` would otherwise be ignored and Hermes would keep
+    the small-context Codex idle default of 12s (PL-FEISHU-004).
+    """
+
+    path = Path(env_file)
+    if not path.is_file():
+        return
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        if not key.startswith("HERMES_"):
+            continue
+        if key in os.environ:
+            continue
+        cleaned = value.strip()
+        if len(cleaned) >= 2 and cleaned[0] == cleaned[-1] and cleaned[0] in {'"', "'"}:
+            cleaned = cleaned[1:-1]
+        os.environ[key] = cleaned
+
+
+apply_hermes_runtime_env()
 
 
 class Settings(BaseSettings):
@@ -71,6 +103,12 @@ class Settings(BaseSettings):
     feishu_app_id: str | None = None
     feishu_app_secret: str | None = None
     feishu_api_base_url: str = "https://open.feishu.cn"
+    feishu_virtual_members_enabled: bool = False
+    feishu_virtual_member_operators: str = ""
+    feishu_virtual_member_profiles: str = ""
+    feishu_virtual_members_enabled: bool = False
+    feishu_virtual_member_operators: str = ""
+    feishu_virtual_member_profiles: str = ""
     # Wiki writes are disabled by default. A configured space is still inert
     # until this flag, credentials, and an explicit review approval are present.
     feishu_wiki_publish_enabled: bool = False
@@ -82,9 +120,16 @@ class Settings(BaseSettings):
     local_project_registry: str = ""
     # Show Skill / provider / usage / trace at card bottom as debug (not first screen).
     feishu_show_debug_audit: bool = True
+    # Context preview card before Hermes. When false, @ questions answer immediately
+    # using the same pending-send default pool (preview UI skipped).
+    feishu_context_preview_enabled: bool = False
     # Document sync ops: off by default so local tests and chat paths stay isolated.
     feishu_doc_sync_on_startup: bool = False
     feishu_doc_sync_interval_seconds: int = 0
+    # Daily knowledge-gap digest; disabled by default until Feishu bindings are configured.
+    feishu_knowledge_gap_digest_enabled: bool = False
+    feishu_knowledge_gap_digest_interval_seconds: int = 86_400
+    feishu_knowledge_gap_digest_timezone: str = "Asia/Shanghai"
     # Production project questions have exactly one decision runtime. Legacy
     # workflow/read-agent factories are test/evaluation-only and are not
     # configurable through production environment variables.
@@ -100,6 +145,9 @@ class Settings(BaseSettings):
     # Optional background Hermes risk review; disabled by default.
     feishu_hermes_risk_review_enabled: bool = False
     feishu_hermes_risk_review_interval_seconds: int = 0
+    # Total wall-clock budget for one Feishu Hermes tool loop. This includes
+    # model turns and read-only tool calls, not the Feishu delivery step.
+    feishu_hermes_loop_timeout_seconds: float = 120.0
     # Engineering execution is a separate opt-in and remains disabled by default.
     feishu_hermes_execution_enabled: bool = False
     # Local Hermes agent checkout (sys.path) for in-process AIAgent. Empty = rely on PYTHONPATH.

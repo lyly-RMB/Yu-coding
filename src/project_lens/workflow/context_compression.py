@@ -9,7 +9,6 @@ from __future__ import annotations
 import re
 from datetime import datetime, timezone
 from typing import Iterable
-from uuid import UUID
 
 from project_lens.context.retrieval.exact import parse_traceback
 from project_lens.domain.conversation import (
@@ -434,13 +433,3 @@ def _dedupe_cap(values: Iterable[str], cap: int) -> tuple[str, ...]:
 
 def _normalize_path(path: str) -> str:
     return path.replace("\\", "/").lstrip("./")
-
-
-def as_uuid_tuple(values: Iterable[str]) -> tuple[UUID, ...]:
-    result: list[UUID] = []
-    for item in values:
-        try:
-            result.append(UUID(item))
-        except ValueError:
-            continue
-    return tuple(result)

@@ -106,6 +106,7 @@ class DefaultContextItem(FrozenModel):
     evidence_ids: tuple[str, ...] = ()
     user_question: str | None = Field(default=None, max_length=20_000)
     answer_summary: str | None = Field(default=None, max_length=4_000)
+    actor_id: str | None = Field(default=None, max_length=100)
 
 
 class PendingItemMark(StrEnum):
@@ -129,6 +130,7 @@ class PendingSendItem(FrozenModel):
     run_id: UUID | None = None
     citation_id: str | None = Field(default=None, max_length=64)
     short_title: str | None = Field(default=None, max_length=CITATION_SHORT_TITLE_MAX)
+    actor_id: str | None = Field(default=None, max_length=100)
 
 
 class PendingSendState(FrozenModel):
@@ -227,6 +229,7 @@ class HistoryCandidate(FrozenModel):
 
     candidate_id: str = Field(min_length=1, max_length=200)
     citation_id: str | None = Field(default=None, max_length=64)
+    run_id: UUID | None = None
     message_id: str | None = Field(default=None, max_length=200)
     occurred_at: datetime
     short_title: str = Field(min_length=1, max_length=CITATION_SHORT_TITLE_MAX)
@@ -234,6 +237,8 @@ class HistoryCandidate(FrozenModel):
     already_in_pending: bool = False
     # Fine-select snapshot for group_message (not shown on card by default).
     body_text: str | None = Field(default=None, max_length=20_000)
+    user_question: str | None = Field(default=None, max_length=20_000)
+    answer_summary: str | None = Field(default=None, max_length=4_000)
 
     @model_validator(mode="after")
     def _require_select_key(self) -> HistoryCandidate:
@@ -523,6 +528,7 @@ def latest_summary_default_item(
         evidence_ids=evidence_ids[:40],
         user_question="\n".join(f"- {question}" for question in questions)[:20_000],
         answer_summary="\n".join(answers)[:4_000] if answers else None,
+        actor_id="multiple",
     )
 
 
@@ -555,6 +561,7 @@ def enumerate_default_context_items(
                 evidence_ids=turn.evidence_ids,
                 user_question=turn.text,
                 answer_summary=turn.answer_summary,
+                actor_id=turn.user_id,
             )
         )
     # Preview == send: ascending by occurred_at (oldest / compressed summary first).
@@ -597,6 +604,7 @@ def pending_item_from_default(item: DefaultContextItem) -> PendingSendItem:
         answer_summary=item.answer_summary,
         evidence_ids=item.evidence_ids,
         run_id=item.run_id,
+        actor_id=item.actor_id,
     )
 
 
@@ -673,11 +681,19 @@ def format_pending_items_for_hermes(
     lines = ["pending_send:"]
     for index, item in enumerate(items, start=1):
         stamp = item.occurred_at.astimezone(timezone.utc).isoformat()
+        role = {
+            "virtual-product": "产品",
+            "virtual-developer": "研发",
+            "virtual-qa": "测试",
+            "virtual-manager": "管理者",
+            "virtual-ops": "运维",
+            "multiple": "多角色",
+        }.get(item.actor_id or "", item.actor_id or "未知角色")
         mark = "默认" if item.mark == PendingItemMark.DEFAULT else "引用"
         if item.source_kind == "citation":
             title = item.short_title or item.label
             lines.append(
-                f"pending[{index}] mark={mark} time={stamp} "
+                f"pending[{index}] role={role} mark={mark} time={stamp} "
                 f"citation_id={item.citation_id} title={title}"
             )
         elif item.source_kind == "summary":
@@ -685,14 +701,14 @@ def format_pending_items_for_hermes(
             question = (item.user_question or item.label)[:200]
             answer = (item.answer_summary or "").strip()
             lines.append(
-                f"pending[{index}] mark={mark} time={stamp} kind=summary "
+                f"pending[{index}] role={role} mark={mark} time={stamp} kind=summary "
                 f"question={question} answer={answer} evidence_ids={evidence}"
             )
         else:
             question = (item.user_question or item.label)[:500]
             answer = (item.answer_summary or "").strip()
             lines.append(
-                f"pending[{index}] mark={mark} time={stamp} "
+                f"pending[{index}] role={role} mark={mark} time={stamp} "
                 f"kind=recent_turn question={question} answer={answer}"
             )
     return "\n".join(lines)
@@ -729,6 +745,16 @@ def list_session_history_candidates(
             if item.citation_id
         }
 
+    turns_by_run_id = {
+        str(turn.run_id): turn
+        for turn in session.recent_turns
+        if turn.run_id is not None
+    }
+    compressed_by_run_id = {
+        str(record.run_id): record
+        for record in latest_compressed_turn_records(session.summary)
+        if record.run_id is not None
+    }
     rows: list[HistoryCandidate] = []
     for entry in session.citations:
         if not _in_date_window(entry.occurred_at, window):
@@ -737,11 +763,30 @@ def list_session_history_candidates(
             HistoryCandidate(
                 candidate_id=f"citation:{entry.citation_id}",
                 citation_id=entry.citation_id,
+                run_id=entry.run_id,
                 message_id=entry.message_id,
                 occurred_at=entry.occurred_at,
                 short_title=entry.short_title,
                 source_kind=entry.source_kind.value,
                 already_in_pending=entry.citation_id in pending_citation_ids,
+                user_question=(
+                    turns_by_run_id[str(entry.run_id)].text
+                    if entry.run_id is not None and str(entry.run_id) in turns_by_run_id
+                    else (
+                        compressed_by_run_id[str(entry.run_id)].user_question
+                        if entry.run_id is not None and str(entry.run_id) in compressed_by_run_id
+                        else None
+                    )
+                ),
+                answer_summary=(
+                    turns_by_run_id[str(entry.run_id)].answer_summary
+                    if entry.run_id is not None and str(entry.run_id) in turns_by_run_id
+                    else (
+                        compressed_by_run_id[str(entry.run_id)].answer_summary
+                        if entry.run_id is not None and str(entry.run_id) in compressed_by_run_id
+                        else None
+                    )
+                ),
             )
         )
     # Newest first for browsing; preview/send still sorts ascending.
@@ -808,14 +853,3 @@ def group_messages_to_history_candidates(
             )
         )
     return tuple(rows)
-
-
-def list_group_message_candidates_stub(
-    session: ConversationSession,
-    *,
-    date_window: DateWindow | None = None,
-) -> tuple[HistoryCandidate, ...]:
-    """Deprecated no-client fallback; real path is ConversationService.list_group_history."""
-
-    del session, date_window
-    return ()

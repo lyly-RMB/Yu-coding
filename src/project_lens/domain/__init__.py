@@ -20,7 +20,6 @@ from project_lens.domain.conversation import (
     format_pending_items_for_hermes,
     group_messages_to_history_candidates,
     latest_compressed_turn_records,
-    list_group_message_candidates_stub,
     list_session_history_candidates,
 )
 from project_lens.domain.genai_trace import GenAITrace, GenAITraceIndexRecord, TraceEntry
@@ -75,6 +74,5 @@ __all__ = [
     "format_pending_items_for_hermes",
     "group_messages_to_history_candidates",
     "latest_compressed_turn_records",
-    "list_group_message_candidates_stub",
     "list_session_history_candidates",
 ]

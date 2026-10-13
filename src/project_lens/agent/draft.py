@@ -44,19 +44,26 @@ class AnswerDraft(BaseModel):
             if start >= 0 and end > start:
                 cleaned = cleaned[start : end + 1]
         payload: dict[str, Any] = json.loads(cleaned)
-        facts = _facts_from_payload(payload.get("facts"))
+        evidence_payload = payload.get("evidence")
+        if not isinstance(evidence_payload, dict):
+            evidence_payload = payload
+        facts = _facts_from_payload(evidence_payload.get("facts"))
         if not facts:
-            facts = _facts_from_payload(payload.get("structured_facts"))
+            facts = _facts_from_payload(evidence_payload.get("structured_facts"))
 
-        citation_ids = _citation_ids_from_payload(payload.get("citations"))
+        citation_ids = _citation_ids_from_payload(
+            evidence_payload.get("citations")
+        )
         answer_text = _first_nonempty_str(
+            payload.get("answer_text"),
             payload.get("business_summary"),
             payload.get("conclusion"),
             payload.get("answer"),
             payload.get("answer_markdown"),
         )
-        # Hermes often emits {answer, citations} instead of AnswerDraft.facts.
-        if not facts and answer_text:
+        # Legacy {answer, citations} envelopes can still form a fact when an
+        # explicit citation exists. answer_text alone is presentation content.
+        if not facts and answer_text and citation_ids:
             facts = [DraftFact(text=answer_text[:4_000], citations=citation_ids)]
         elif facts and citation_ids:
             # Attach top-level citations when individual facts omitted them.
@@ -71,13 +78,13 @@ class AnswerDraft(BaseModel):
             facts = enriched
 
         unknowns = _string_list(
-            payload.get("unknowns"),
-            payload.get("limitations"),
-            payload.get("open_questions"),
+            evidence_payload.get("unknowns"),
+            evidence_payload.get("limitations"),
+            evidence_payload.get("open_questions"),
         )
         next_actions = _string_list(
-            payload.get("next_actions"),
-            payload.get("follow_up_questions"),
+            evidence_payload.get("next_actions"),
+            evidence_payload.get("follow_up_questions"),
         )
         business_summary = _first_nonempty_str(
             payload.get("business_summary"),
@@ -89,9 +96,9 @@ class AnswerDraft(BaseModel):
         )[:2_000]
         return cls(
             facts=facts,
-            inferences=_string_list(payload.get("inferences")),
+            inferences=_string_list(evidence_payload.get("inferences")),
             unknowns=unknowns,
-            impact=_string_list(payload.get("impact")),
+            impact=_string_list(evidence_payload.get("impact")),
             next_actions=next_actions,
             conclusion=conclusion,
             business_summary=business_summary,
@@ -161,7 +168,16 @@ def _string_list(*parts: Any) -> list[str]:
             continue
         if isinstance(part, list):
             for item in part:
-                text = str(item).strip()
+                if isinstance(item, dict):
+                    text = str(
+                        item.get("text")
+                        or item.get("title")
+                        or item.get("description")
+                        or item.get("question")
+                        or ""
+                    ).strip()
+                else:
+                    text = str(item).strip()
                 if text:
                     values.append(text)
     return list(dict.fromkeys(values))

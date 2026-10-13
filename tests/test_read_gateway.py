@@ -2,14 +2,10 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
-from fastapi.testclient import TestClient
 
 from project_lens.context.models import AccessContext, ContextQuery
 from project_lens.domain.models import ProjectRef
-from project_lens.graph.query import GraphQuery
 from project_lens.main import create_app
 from project_lens.project_space.policies import (
     EffectiveAccessScope,
@@ -19,9 +15,7 @@ from project_lens.project_space.policies import (
 )
 from project_lens.runtime.policy import RiskClass
 from project_lens.runtime.read_gateway import ReadContextGateway
-from project_lens.runtime.tool_specs import ToolLane, assert_tool_callable, tool_policy_hash
-
-ROOT = Path(__file__).parents[1]
+from project_lens.runtime.tool_specs import ToolLane, assert_tool_callable
 
 
 def _project() -> ProjectRef:
@@ -134,26 +128,19 @@ def test_read_gateway_audits_search_and_never_apply() -> None:
     assert gateway.audit_summary()["apply_events"] == []
 
 
-def test_read_gateway_authorized_and_gaps_and_graph() -> None:
+def test_read_gateway_authorized_and_gaps() -> None:
     app = create_app()
     gateway = ReadContextGateway(app.state.context_engine)
     project = _project()
     access = _access()
     gaps = gateway.list_knowledge_gaps(project, access)
     evidence = gateway.authorized_evidence(project, access, limit=20)
-    paths = gateway.query_graph(
-        project,
-        access,
-        GraphQuery(relation="responsible_for", limit=5),
-    )
     assert gaps.gaps is not None
     assert evidence
-    assert isinstance(paths, tuple)
     names = {event.tool_name for event in gateway.audit_events}
     assert {
         "list_knowledge_gaps",
         "authorized_evidence",
-        "query_graph",
     } <= names
     assert_tool_callable("authorized_evidence", allow_apply=False)
     assert all(spec.category == ToolLane.READ for spec in gateway.list_read_specs())

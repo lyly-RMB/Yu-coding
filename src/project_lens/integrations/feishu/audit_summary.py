@@ -230,29 +230,6 @@ def _evidence_ids_preview(answer: ProjectAnswer) -> str:
     return preview
 
 
-def extract_model_adapter_refs_from_events(
-    events: tuple[AgentEvent, ...],
-) -> dict[str, Any]:
-    analyzing = _analyzing_payload(events)
-    raw = analyzing.get("model_adapter") if analyzing else None
-    if isinstance(raw, Mapping):
-        return _strip_secrets(dict(raw))
-    for event in events:
-        if event.type != AgentEventType.LIFECYCLE:
-            continue
-        payload = event.payload or {}
-        if payload.get("lifecycle_type") == "context.prompt_rendered" or payload.get(
-            "type"
-        ) == "context.prompt_rendered":
-            adapter = payload.get("model_adapter")
-            if isinstance(adapter, Mapping):
-                return _strip_secrets(dict(adapter))
-        nested = payload.get("model_adapter")
-        if isinstance(nested, Mapping) and "provider" in nested:
-            return _strip_secrets(dict(nested))
-    return {}
-
-
 def _analyzing_payload(events: tuple[AgentEvent, ...]) -> dict[str, Any]:
     for event in reversed(events):
         payload = event.payload or {}

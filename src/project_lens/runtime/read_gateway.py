@@ -16,9 +16,8 @@ from project_lens.context.knowledge_gaps import build_knowledge_gap_report
 from project_lens.context.models import AccessContext, ContextQuery, EvidenceBundle
 from project_lens.context.authority import AuthorityResolution, resolve_fact as resolve_authority_fact
 from project_lens.context.source_records import FactType, SourceRecord
-from project_lens.domain.models import Evidence, GraphEvidence, KnowledgeGapReport, ProjectRef
+from project_lens.domain.models import Evidence, KnowledgeGapReport, ProjectRef
 from project_lens.domain.ops import OpsFinding, OpsQuery
-from project_lens.graph.query import GraphQuery
 from project_lens.project_space.policies import EffectiveAccessScope, source_path_allowed
 from project_lens.runtime.policy import RiskClass
 from project_lens.runtime.tool_gateway import ToolAuditEvent
@@ -175,39 +174,6 @@ class ReadContextGateway:
             True,
         )
         return report
-
-    def query_graph(
-        self,
-        project: ProjectRef,
-        access: AccessContext,
-        query: GraphQuery,
-        scope: EffectiveAccessScope | None = None,
-    ) -> tuple[GraphEvidence, ...]:
-        assert_tool_callable("query_graph", allow_apply=False)
-        self._enforce_scope(scope, "query_graph", project)
-        paths = self.engine.query_graph(project, access, query)
-        if scope is not None:
-            authorized = self.engine.authorized_evidence(project, access, limit=50)
-            visible_ids = {
-                item.id for item in authorized if _evidence_allowed(scope, item)
-            }
-            paths = tuple(
-                path
-                for path in paths
-                if path.evidence_ids
-                and set(path.evidence_ids).issubset(visible_ids)
-                and all(_evidence_allowed(scope, item) for item in path.cited_evidence)
-            )
-        self._audit(
-            "query_graph",
-            _audit_arguments(project, scope, {
-                "relation": query.relation,
-                "path_count": len(paths),
-            }),
-            f"path_count={len(paths)}",
-            True,
-        )
-        return paths
 
     def query_ops(
         self,

@@ -156,6 +156,24 @@ def _last_card(app) -> dict:
     return cards[-1].content
 
 
+def _confirm_message(client, *, response, event_id: str) -> dict:
+    result = client.post(
+        "/api/v1/feishu/events",
+        json={
+            "schema": "2.0",
+            "header": {"event_id": event_id, "event_type": "card.action.trigger", "tenant_key": "demo"},
+            "event": {
+                "operator": {"open_id": "feishu-user-1"},
+                "action": {"tag": "button", "value": {"action": "context_direct_answer", "session_id": response.json()["session_id"]}},
+                "context": {"open_chat_id": "chat-1", "chat_type": "group"},
+            },
+            "token": LOCAL_TOKEN,
+        },
+    )
+    assert result.status_code == 200
+    return result.json()
+
+
 def test_feishu_answer_card_offers_memory_proposal_buttons() -> None:
     app = create_app()
     _configure(app)
@@ -166,18 +184,30 @@ def test_feishu_answer_card_offers_memory_proposal_buttons() -> None:
         json=_message_payload(event_id="memory-offer-event", text=TRACEBACK),
     )
     assert response.status_code == 200
+    confirm = _confirm_message(client, response=response, event_id="memory-offer-confirm")
     card = _last_card(app)
     card_text = str(card)
-    assert "建议沉淀为项目记忆" in card_text
-    assert "为什么建议沉淀" in card_text
-    assert "引用了哪些证据" in card_text
-    assert "记忆类型" in card_text
-    assert "确认沉淀" in card_text
-    assert "暂不沉淀" in card_text
     assert "memory_approve" in card_text
     assert "memory_reject" in card_text
+    # Answer body and memory buttons share one interactive card.
+    assert "下单可能因 coupon 为空失败" in card_text
+    assert "建议沉淀为项目记忆" in card_text
+    assert "项目记忆待确认" not in card_text
+    interactive = [
+        item
+        for item in app.state.feishu_messenger.messages
+        if item.message_type == "interactive"
+    ]
+    # After hermes completes, the last interactive must be the merged answer card
+    # (no separate pending memory decision card).
+    assert interactive[-1].content is card
+    assert not any(
+        "项目记忆待确认" in str(item.content) for item in interactive
+    )
 
-    run = app.state.run_service.get(UUID(response.json()["run_id"]))
+    run_id = confirm.get("run_id") or response.json().get("run_id")
+    assert run_id
+    run = app.state.run_service.get(UUID(run_id))
     assert run.status == "completed"
     assert run.answer is not None
     proposal_ids = [
@@ -200,6 +230,7 @@ def test_feishu_card_action_approves_memory_proposal() -> None:
         json=_message_payload(event_id="memory-create-event", text=TRACEBACK),
     )
     assert create_response.status_code == 200
+    _confirm_message(client, response=create_response, event_id="memory-create-confirm")
     card = _last_card(app)
     proposal_id = None
     for element in card.get("elements", []):
@@ -245,10 +276,11 @@ def test_feishu_card_action_reject_does_not_write_memory() -> None:
     _configure(app)
     client = TestClient(app)
 
-    client.post(
+    response = client.post(
         "/api/v1/feishu/events",
         json=_message_payload(event_id="memory-reject-create", text=TRACEBACK),
     )
+    _confirm_message(client, response=response, event_id="memory-reject-confirm")
     card = _last_card(app)
     proposal_id = None
     for element in card.get("elements", []):
@@ -280,10 +312,11 @@ def test_feishu_card_action_is_idempotent() -> None:
     app = create_app()
     _configure(app)
     client = TestClient(app)
-    client.post(
+    response = client.post(
         "/api/v1/feishu/events",
         json=_message_payload(event_id="memory-idem-create", text=TRACEBACK),
     )
+    _confirm_message(client, response=response, event_id="memory-idem-confirm")
     card = _last_card(app)
     proposal_id = None
     for element in card.get("elements", []):

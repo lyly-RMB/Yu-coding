@@ -10,6 +10,8 @@ from enum import StrEnum
 
 
 class FeishuProjectCommand(StrEnum):
+    RESET_CONVERSATION = "reset_conversation"
+    CONTEXT_MANAGER = "context_manager"
     PROJECT_INTRO = "project_intro"
     PROJECT_MAP = "project_map"
     RECENT_CHANGES = "recent_changes"
@@ -45,6 +47,15 @@ _DOC_SYNC_STATUS_TERMS = (
     "文档最近同步",
     "同步状态",
 )
+_RESET_CONVERSATION_TERMS = (
+    "/reset",
+    "/clear",
+    "清空对话",
+    "清空聊天记录",
+    "重开对话",
+    "重新开始对话",
+)
+_CONTEXT_MANAGER_PREFIXES = ("/context", "上下文管理", "打开上下文管理", "管理上下文")
 
 
 def classify_feishu_command(text: str) -> FeishuProjectCommand:
@@ -52,6 +63,10 @@ def classify_feishu_command(text: str) -> FeishuProjectCommand:
     normalized = _normalize(text)
     if not normalized:
         return FeishuProjectCommand.FREE_QUESTION
+    if _matches(normalized, _RESET_CONVERSATION_TERMS):
+        return FeishuProjectCommand.RESET_CONVERSATION
+    if is_context_manager_command(text):
+        return FeishuProjectCommand.CONTEXT_MANAGER
     if _matches(normalized, _DOC_SYNC_STATUS_TERMS):
         return FeishuProjectCommand.DOC_SYNC_STATUS
     if _matches(normalized, _PROJECT_INTRO_TERMS):
@@ -92,7 +107,37 @@ def rewrite_command_to_question(
         return "这个项目的负责人是谁？如果证据不足，请说明缺少哪些负责人资料。"
     if command == FeishuProjectCommand.DOC_SYNC_STATUS:
         return "请展示这个项目的 Feishu 文档同步状态与最近更新的知识库文档。"
+    if command == FeishuProjectCommand.RESET_CONVERSATION:
+        return ""
     return original
+
+
+def is_context_manager_command(text: str) -> bool:
+    """Whether the user explicitly requested one-shot context editing."""
+
+    normalized = text.strip().casefold()
+    return any(
+        normalized == prefix.casefold()
+        or normalized.startswith(prefix.casefold() + " ")
+        or normalized.startswith(prefix.casefold() + ":")
+        or normalized.startswith(prefix.casefold() + "\uff1a")
+        for prefix in _CONTEXT_MANAGER_PREFIXES
+    )
+
+
+def strip_context_manager_prefix(text: str) -> str:
+    """Remove a context-manager command prefix from the actual question."""
+
+    stripped = text.strip()
+    lowered = stripped.casefold()
+    for prefix in _CONTEXT_MANAGER_PREFIXES:
+        marker = prefix.casefold()
+        if lowered == marker:
+            return ""
+        for separator in (" ", ":", "\uff1a"):
+            if lowered.startswith(marker + separator):
+                return stripped[len(prefix) + len(separator) :].strip()
+    return stripped
 
 
 def rewrite_feishu_message(text: str) -> str:

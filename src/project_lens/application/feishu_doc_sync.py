@@ -40,12 +40,14 @@ class FeishuDocumentSyncService:
         status_store: FeishuDocSyncStatusStore | None = None,
         indexer: FeishuDocumentIndexer | None = None,
         source_store: SourceRecordStore | None = None,
+        knowledge_gap_service=None,
     ) -> None:
         self._client = client
         self._index = index
         self._status_store = status_store
         self._indexer = indexer or FeishuDocumentIndexer()
         self._source_store = source_store
+        self._knowledge_gap_service = knowledge_gap_service
 
     @property
     def available(self) -> bool:
@@ -145,6 +147,19 @@ class FeishuDocumentSyncService:
             else:
                 self._source_store.put(to_source_record(record))
             indexed += self._index.add_many(evidence)
+            if self._knowledge_gap_service is not None:
+                try:
+                    self._knowledge_gap_service.enqueue_source_rechecks(
+                        project=project,
+                        source_ref=f"feishu_doc:{token}",
+                        revision=str(raw.revision),
+                        now=now,
+                    )
+                except Exception:  # noqa: BLE001 - indexing success must not be undone by queue failure
+                    logger.exception(
+                        "knowledge-gap recheck enqueue failed project=%s",
+                        project.project_id,
+                    )
             status = _build_status(
                 project=project,
                 doc_token=token,

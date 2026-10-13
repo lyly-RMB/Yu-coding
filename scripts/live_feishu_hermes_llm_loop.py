@@ -35,7 +35,6 @@ def main() -> int:
     hermes_env = Path(r"C:\Users\Administrator\AppData\Local\hermes\.env")
     _load_dotenv(hermes_env)
 
-    os.environ["PROJECT_LENS_FEISHU_USE_HERMES_TOOL_LOOP"] = "true"
     os.environ.setdefault(
         "PROJECT_LENS_HERMES_REPO",
         r"C:\Users\Administrator\Desktop\hermes-agent-main",

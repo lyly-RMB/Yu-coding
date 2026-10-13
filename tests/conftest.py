@@ -14,6 +14,8 @@ def pytest_configure(config) -> None:  # noqa: ANN001
     app_config.settings.model_live = False
     app_config.settings.allow_external_calls = False
     app_config.settings.agent_mode = "hermes"
+    # Keep preview card path as the default under pytest; opt out per-test.
+    app_config.settings.feishu_context_preview_enabled = True
 
 
 def project_agent_headers(

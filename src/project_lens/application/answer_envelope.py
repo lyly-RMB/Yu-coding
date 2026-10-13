@@ -61,15 +61,11 @@ def project_answer_to_envelope(
 
     for claim in answer.claims:
         if claim.type == ClaimType.FACT:
-            if not claim.evidence_ids:
-                unknowns.append(f"未通过引用校验的候选结论：{claim.text[:160]}")
-                continue
             cites = [str(eid) for eid in claim.evidence_ids if eid in evidence_by_id]
-            if not cites:
-                unknowns.append(f"未通过引用校验的候选结论：{claim.text[:160]}")
-                continue
             # Empty tool observations must not be presented as project facts.
-            if all(_is_empty_observation(evidence_by_id[UUID(cid)]) for cid in cites):
+            if cites and all(
+                _is_empty_observation(evidence_by_id[UUID(cid)]) for cid in cites
+            ):
                 unknowns.append(
                     "当前检索未找到可用项目资料；"
                     f"相关工具结果为空：{claim.text[:120]}"
@@ -115,10 +111,11 @@ def project_answer_to_envelope(
         "project": _project_payload(answer.project or run.project),
         "run_id": str(run.id),
         "trace_id": str(run.trace_id),
+        "answer_text": answer.answer_text or answer.business_summary or answer.conclusion,
         "answer_summary": _truncate(
             audience_view.conclusion
             if audience_view is not None
-            else answer.business_summary
+            else (answer.answer_text or answer.business_summary or answer.conclusion)
             if facts or not unknowns
             else (unknowns[0] if unknowns else answer.business_summary),
             _SUMMARY_MAX,
@@ -220,7 +217,7 @@ def _is_empty_observation(item: Evidence) -> bool:
 
 def _citation_entry(item: Evidence, *, redact_body: bool = False) -> dict[str, Any]:
     kind = _evidence_kind(item)
-    if redact_body and item.type in {EvidenceType.CODE, EvidenceType.LOG}:
+    if item.type in {EvidenceType.CODE, EvidenceType.LOG}:
         summary = "授权来源已记录；当前角色不展示正文。"
     else:
         summary = _truncate(item.content.strip().replace("\n", " "), _CITATION_SUMMARY_MAX)

@@ -19,12 +19,15 @@ from project_lens.workflow.providers.transport import ChatTransport, UrllibChatT
 _EXPRESSION_SYSTEM = (
     "You are a read-only ProjectLens expression assistant. "
     "Respond with a single JSON object only. "
-    "Keys: business_summary, technical_summary, product_summary, "
-    "hypotheses (array of strings), claim_drafts (array of "
-    "{text, claim_type, evidence_ids}), allow_apply (must be false). "
+    "Keys: answer_text (the complete natural-language answer), "
+    "facts (array of {text, citations}), unknowns (array of strings), "
+    "hypotheses (array of strings), allow_apply (must be false). "
     "Do not invent facts without evidence_ids from the prompt. "
     "Never suggest Apply, PR, deploy, rollback, or memory writes."
 )
+
+# This provider remains available for isolated/offline workflow experiments.
+# Production Feishu/API/MCP questions use HermesRuntimeService.
 
 
 class OpenAIProvider:

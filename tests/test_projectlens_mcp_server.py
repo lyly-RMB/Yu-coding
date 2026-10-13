@@ -184,27 +184,15 @@ async def test_mcp_call_projectlens_tool_search_context_envelope() -> None:
 
 
 @pytest.mark.asyncio
-async def test_mcp_call_projectlens_tool_query_graph_and_gaps() -> None:
-    service = _tool_service()
-    graph = await call_projectlens_tool(
-        service,
-        tool_name="projectlens_query_graph",
-        project_id="payment",
-        user_id="u1",
-        arguments={"limit": 5},
-        actor=_actor(),
-    )
+async def test_mcp_call_projectlens_tool_list_knowledge_gaps() -> None:
     gaps = await call_projectlens_tool(
-        service,
+        _tool_service(),
         tool_name="projectlens_list_knowledge_gaps",
         project_id="payment",
         user_id="u1",
         arguments={},
         actor=_actor(),
     )
-    assert graph["ok"] is True
-    assert graph["internal_tool_name"] == "query_graph"
-    assert graph["audit_ref"]["allow_apply"] is False
     assert gaps["ok"] is True
     assert gaps["internal_tool_name"] == "list_knowledge_gaps"
     assert gaps["audit_ref"]["allow_apply"] is False

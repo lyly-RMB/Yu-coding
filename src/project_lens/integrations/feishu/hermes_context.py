@@ -11,12 +11,27 @@ from project_lens.domain.conversation import (
     format_pending_items_for_hermes,
     latest_compressed_turn_records,
 )
+
+
 from project_lens.domain.session_state import HandoffSummary, render_session_state_markdown
 from project_lens.domain.memory import ProjectMemory
 from project_lens.context.memory_retrieval import (
     MemorySummaryEntry,
     render_memory_summary,
 )
+
+
+_VIRTUAL_ROLE_LABELS = {
+    "virtual-product": "产品",
+    "virtual-developer": "研发",
+    "virtual-qa": "测试",
+    "virtual-manager": "管理者",
+    "virtual-ops": "运维",
+}
+
+
+def _role_label(user_id: str) -> str:
+    return _VIRTUAL_ROLE_LABELS.get(user_id, user_id)
 
 
 @dataclass(frozen=True)
@@ -99,7 +114,11 @@ def build_hermes_project_context(
             lines.append(format_pending_items_for_hermes(session.pending_send.items))
         else:
             for index, turn in enumerate(session.recent_turns, start=1):
-                lines.append(f"recent_turn[{index}] user_id={turn.user_id} text={turn.text}")
+                lines.append(
+                    f"recent_turn[{index}] role={_role_label(turn.user_id)} "
+                    f"user_id={turn.user_id} text={turn.text} "
+                    f"evidence_ids={','.join(turn.evidence_ids)}"
+                )
             if session.summary.compressed_turn_records:
                 lines.append("compressed_turn_summaries:")
                 for index, record in enumerate(
@@ -110,12 +129,19 @@ def build_hermes_project_context(
                     lines.append(
                         f"compressed_turn[{index}] time="
                         f"{record.occurred_at.isoformat()} "
+                        f"role={_role_label(str(record.run_id or ''))} "
                         f"question={record.user_question[:200]} "
                         f"answer={record.answer_summary[:200]} "
                         f"evidence_ids={evidence}"
                     )
             # Citation ledger: metadata only; bodies via projectlens_get_citation_body.
             lines.append(format_citation_ledger_for_context(session.citations))
+
+        pending_question = (session.pending_send.question if session.pending_send else "")
+        if any(term in pending_question for term in ("总结", "讨论", "已确认", "待确认")):
+            lines.append(
+                "summary_output_format=如果用户要求多角色讨论总结，将产品、研发、测试三段写入完整回答正文(answer_text)，并区分已确认与待确认；不要把角色段落当作 facts 或 citations。普通问题保持自然回答，不要强行套用三段格式。只输出一份回答正文，不要追加技术视图或角色视图。"
+            )
 
         if session.task_scratchpad:
             scratch = session.task_scratchpad
@@ -141,6 +167,12 @@ def build_hermes_project_context(
             )
     else:
         lines.append("approved_project_memories=(none)")
+
+    # Summaries must preserve the evidence ids carried by prior turns instead
+    # of becoming uncited prose when the user asks to summarize the discussion.
+    lines.append(
+        "citation_inheritance_rule=when summarizing prior turns, reuse their evidence_ids and cite the corresponding sources; do not output citation-free conclusions if prior evidence exists."
+    )
 
     pending_ids: list[str] = []
     pending_count = 0

@@ -1,0 +1,34 @@
+{
+  "project_id": "projectlens",
+  "roles": {
+    "product": {
+      "actor_id": "virtual-product",
+      "display_name": "产品-林悦",
+      "role": "product"
+    },
+    "developer": {
+      "actor_id": "virtual-developer",
+      "display_name": "研发-陈工",
+      "role": "developer"
+    },
+    "qa": {
+      "actor_id": "virtual-qa",
+      "display_name": "测试-周敏",
+      "role": "qa"
+    },
+    "manager": {
+      "actor_id": "virtual-manager",
+      "display_name": "项目经理-王磊",
+      "role": "manager"
+    },
+    "ops": {
+      "actor_id": "virtual-ops",
+      "display_name": "运维-刘洋",
+      "role": "ops"
+    }
+  },
+  "operator": {
+    "description": "真实飞书测试账号，由测试环境白名单控制",
+    "physical_actor_id": "ou_287cf34ee1e60e7b44a8c562562dbe41"
+  }
+}

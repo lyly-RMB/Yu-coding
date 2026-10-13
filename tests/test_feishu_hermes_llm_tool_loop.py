@@ -15,6 +15,7 @@ from project_lens.integrations.feishu.hermes_loop_runner import (
     HermesAIAgentLoopRunner,
     HermesLoopRunResult,
     HermesLoopToolCall,
+    _add_inherited_context_evidence,
     _is_recoverable_hermes_failure,
     _compact_tool_envelope,
     extract_tool_calls_from_messages,
@@ -27,6 +28,20 @@ from project_lens.integrations.feishu.hermes_tool_loop import (
 from project_lens.integrations.hermes_plugin.config import ProjectLensPluginConfig
 from project_lens.runtime.events import InMemoryEventSink
 from project_lens.runtime.lifecycle import LifecycleBus, LifecycleEventType
+
+
+def test_inherited_evidence_only_reads_explicit_evidence_ids_fields() -> None:
+    inherited_id = "11111111-2222-3333-4444-555555555555"
+    unrelated_id = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+    calls = _add_inherited_context_evidence(
+        context_text=(
+            f"recent_turn[1] evidence_ids={inherited_id}\n"
+            f"run_id={unrelated_id}"
+        ),
+        tool_calls=(),
+    )
+    assert len(calls) == 1
+    assert calls[0].envelope["evidence_refs"][0]["id"] == inherited_id
 
 
 class _FakeToolService:
@@ -670,6 +685,82 @@ def test_real_runner_repr_does_not_expose_api_key() -> None:
     )
 
     assert "secret-that-must-not-leak" not in repr(runner)
+
+
+def test_real_runner_rebinds_inprocess_tools_after_aiagent_plugin_overwrite(
+    monkeypatch,  # noqa: ANN001
+) -> None:
+    """AIAgent plugin discovery registers HTTP ApiClient handlers; Feishu must rebind."""
+
+    rebound: list[bool] = []
+
+    class FakeAIAgent:
+        def __init__(self, **kwargs):  # noqa: ANN003
+            del kwargs
+
+        def run_conversation(self, question: str) -> dict:
+            del question
+            return {
+                "final_response": "ok",
+                "messages": [
+                    {
+                        "role": "assistant",
+                        "tool_calls": [
+                            {
+                                "id": "c1",
+                                "function": {
+                                    "name": "projectlens_search_context",
+                                    "arguments": '{"query":"status"}',
+                                },
+                            }
+                        ],
+                    },
+                    {
+                        "role": "tool",
+                        "tool_call_id": "c1",
+                        "name": "projectlens_search_context",
+                        "content": json_dumps_envelope(),
+                    },
+                ],
+            }
+
+    class FakeInProcessClient:
+        def list_tools(self) -> dict:
+            return {"ok": True, "tools": []}
+
+        def call_tool(self, payload: dict) -> dict:
+            del payload
+            return {"ok": True}
+
+    fake_module = ModuleType("run_agent")
+    fake_module.AIAgent = FakeAIAgent  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "run_agent", fake_module)
+    monkeypatch.setattr(
+        "project_lens.integrations.feishu.hermes_loop_runner.assert_external_calls_allowed",
+        lambda *args, **kwargs: None,
+    )
+
+    runner = HermesAIAgentLoopRunner(
+        client=FakeInProcessClient(),
+        config=ProjectLensPluginConfig(),
+    )
+    runner._registered = True
+
+    def _force_rebind(*, force: bool = False) -> None:
+        rebound.append(force)
+
+    monkeypatch.setattr(runner, "_ensure_tools_registered", _force_rebind)
+
+    result = runner.run(
+        question="项目状态",
+        project=ProjectRef(tenant_id="demo", project_id="projectlens"),
+        user_id="ou_test",
+        chat_id="chat-1",
+    )
+
+    assert result.ok is True
+    assert True in rebound
+    assert rebound[-1] is True
 
 
 def json_dumps_envelope() -> str:

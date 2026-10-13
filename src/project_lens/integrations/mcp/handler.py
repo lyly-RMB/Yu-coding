@@ -39,7 +39,7 @@ FORMAL_TOOL_NAMES: frozenset[str] = frozenset(
     {
         "projectlens_search_context",
         "projectlens_read_project_file",
-        "projectlens_query_graph",
+        "projectlens_list_project_files",
         "projectlens_authorized_evidence",
         "projectlens_list_knowledge_gaps",
     }

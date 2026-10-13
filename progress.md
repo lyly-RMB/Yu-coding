@@ -1,6 +1,33 @@
 # Progress Log
 
+## 2026-10-12 问答链路职责分离实施方案
+
+- 新增 `docs/projectlens-answer-pipeline-implementation-plan.md`，定义 Hermes 回答正文、AnswerDraft 证据结构、ProjectAnswer 验证结果和飞书展示的职责边界。
+- 方案覆盖数据契约、五阶段实施、卡片/API 统一、引用与 ACL 风险、测试矩阵和放行条件。
+- 明确三段输出是格式需求而非证据要求；普通问答不强制三段；真实飞书消息由用户手动发送。
+- 按用户补充要求增加“问答链路死代码盘点与清理”阶段，限定在本链路范围，并要求先验证静态引用、动态注册和迁移用途后再删除。
+- 开始按方案落地：新增 `ProjectAnswer.answer_text`，Hermes loop 保存完整回答正文，`answer_text` 与 AnswerDraft 证据字段分离。
+- `AnswerDraft` 不再仅凭回答正文生成 fact；只有显式事实引用或 facts 字段才进入证据验证。
+- 飞书卡片、audience view、API envelope 优先使用完整 `answer_text`；通用展示从“ 一句话结论 ”改为“回答”。
+- 新增完整三段正文保留测试；核心 Hermes/领域/Feishu 回归 34 passed。旧测试断言已同步到新展示契约。
+- 死代码清理尚未执行：当前只完成盘点边界，下一步需在确认动态注册和历史迁移依赖后删除旧 role-summary/摘要路径。
+- 后续完成：移除旧角色摘要字段和输出；`AnswerDraft` 解析 `{answer_text, evidence:{...}}`，但不把正文提升为事实。
+- 禁止将 `[E1]/[E2]` 按台账顺序猜绑到 Evidence，只接受显式 UUID/唯一前缀；旧 `parse_hermes_answer()` 保留为测试/兼容 API，生产链路走结构化 parser 与正文 extractor。
+- 增加历史 `ProjectAnswer` JSON 缺少 `answer_text` 的兼容测试；更新 OpenAI 实验 provider 契约并标注其不用于生产问答。
+- 定向答案/parser/provider/persistence 测试 23 passed，compileall、Ruff 通过。全量测试 843 passed、22 failed，失败集中在现有 Feishu direct-reply/集成、role projection、安全边界、memory routes 与 Obsidian 配置等其他兼容问题，需另行处理。
+- 已重启后端并确认 Feishu `configured=True`、Hermes bridge 启用、long connection `connected`；真实飞书验收仍由用户手动发送消息完成。
+- 收尾修复：A/B 级 FACT 必须绑定 Evidence；答案 Evidence 必须属于当前项目且在项目读取范围内；direct-answer 优先发文本，卡片失败时自动降级文本；同步状态恢复交互卡；清理 Feishu service 重复 import、未使用变量和风险分支未定义 session。
+- 旧摘要字段改为带弃用说明的兼容字段，内部上下文/记忆提取优先使用 `answer_text`；角色卡片补回角色标题和完整 audience sections。
+- 收尾定向验证：9 passed；compileall、Ruff、git diff 检查通过。剩余角色共享证据 ID 旧测试使用每次新建 UUID，属于测试 fixture 自身不稳定，不是运行时泄露或引用绑定问题。
+
 ## 2026-09-22 Hermes context compression quick implementation
+
+## 2026-10-12 Answer pipeline implementation plan
+
+- User clarified that three-section output is a Hermes presentation requirement, not a real-evidence requirement.
+- The implementation direction is being corrected: `AnswerDraft` must remain evidence-oriented; role formatting belongs to Hermes final answer text and the presentation layer.
+- Existing additive `role_summaries` work should be reviewed and either removed from the evidence contract or kept only as a non-authoritative compatibility projection; it must not replace the complete answer text.
+- Next implementation order: capture final Hermes text, add `answer_text` to `ProjectAnswer`, simplify AnswerDraft parsing, update Feishu renderers, then add regression tests and restart the backend for manual Feishu acceptance.
 
 - Confirmed existing `ConversationService` already performs deterministic L1/L2/L3 compression, but Hermes still receives ungoverned context and full tool envelopes.
 - Started phase 1 implementation: request-level token estimation, bounded context pruning, and audit reporting at the ProjectLens/Hermes boundary.
@@ -307,3 +334,17 @@
 - Completed Phase 3 core: added Obsidian Lint findings, durable `KnowledgeOperation` records, sync/export/Lint orchestration with dry-run and export-failure isolation, conditional Hermes operation tools, and knowledge-operation APIs/status lookup.
 - Phase 3 verification passed: 21 focused Obsidian, operation, export, Wiki, and contract tests; Python compilation; and `git diff --check`.
 - Starting Phase 4: controlled Inbox proposal import with duplicate detection, Evidence matching, conflict state, and approval boundary.
+## 2026-10-10 参赛整改计划
+
+- 新增 `docs/competition-remediation-plan.md`，整理当前项目的稳定性、评测、知识数据、产品聚焦、发布冻结、安全合规、试点和比赛材料问题。
+- 新增文档地图入口 `docs/README.md`。
+- 文档将飞书测试报告中的 P1、Hermes 超时、检索/上下文评测数据不足和比赛材料缺口转成解决步骤、验收标准和交付物。
+- `git diff --check` 通过；当前计划只新增文档，未修改产品代码。
+
+## 2026-10-11 参赛专项测试方案
+
+- 新增 `docs/competition-test-plan.md`，面向比赛验收设计 L0-L5 六层测试。
+- 覆盖功能闭环、三套飞书剧本、AI 检索/引用/冲突/未知/时间/上下文压缩、对照实验、权限安全、故障注入、性能恢复、用户试点、现场演示和最终放行门禁。
+- 复用现有 `evaluation/feishu_team_test/` 剧本、`evaluation/configs/gates.json` 和缺陷记录模板；要求最终报告绑定同一 Git 版本和数据集哈希。
+- `git diff --check` 通过；本次只新增测试方案文档并更新文档地图，未修改产品代码。
+

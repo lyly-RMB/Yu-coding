@@ -62,7 +62,7 @@ def test_project_agent_tools_list_is_read_only_and_namespaced() -> None:
     body = response.json()
     assert body["ok"] is True
     names = {item["name"] for item in body["tools"]}
-    assert names == {
+    required = {
         "projectlens_get_citation_body",
         "projectlens_search_project_memory",
         "projectlens_get_memory_detail",
@@ -71,11 +71,12 @@ def test_project_agent_tools_list_is_read_only_and_namespaced() -> None:
         "projectlens_search_context",
         "projectlens_read_project_file",
         "projectlens_list_project_files",
-        "projectlens_query_graph",
         "projectlens_authorized_evidence",
         "projectlens_list_knowledge_gaps",
     }
-    assert all(item["category"] == "read" for item in body["tools"])
+    assert required <= names
+    assert "projectlens_query_graph" not in names
+    assert not any("grep" in name or "file_range" in name for name in names)
     assert all(item["allow_apply"] is False for item in body["tools"])
     assert not any("deploy" in name or "apply" in name or "restart" in name for name in names)
 
@@ -435,7 +436,7 @@ def test_project_agent_tool_call_can_switch_project_space() -> None:
     assert body["visibility_scope"]["project_id"] == "crm"
 
 
-def test_project_agent_tool_call_query_graph_returns_envelope() -> None:
+def test_project_agent_tool_call_unknown_query_graph_is_rejected() -> None:
     response = _client().post(
         "/api/v1/project-agent/tools/call",
         json=_call_payload(
@@ -447,15 +448,10 @@ def test_project_agent_tool_call_query_graph_returns_envelope() -> None:
 
     assert response.status_code == 200
     body = response.json()
-    assert body["ok"] is True
-    assert body["tool_name"] == "projectlens_query_graph"
-    assert body["internal_tool_name"] == "query_graph"
-    assert body["summary"]
-    assert "path" in body["summary"].lower() or "query_graph" in body["summary"]
+    assert body["ok"] is False
+    assert body["error_code"] in {"UNKNOWN_TOOL", "TOOL_NOT_ALLOWED"}
+    assert body["agent_recovery_hint"]
     assert body["audit_ref"]["allow_apply"] is False
-    assert isinstance(body["citations"], list)
-    assert isinstance(body["evidence_refs"], list)
-    assert "agent_recovery_hint" not in body or body.get("ok") is True
 
 
 def test_project_agent_tool_call_list_knowledge_gaps_returns_envelope() -> None:

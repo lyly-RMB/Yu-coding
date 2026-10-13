@@ -98,11 +98,16 @@ class Claim(FrozenModel):
     grade: EvidenceGrade = EvidenceGrade.UNKNOWN
 
     @model_validator(mode="after")
-    def facts_require_evidence(self) -> "Claim":
-        if self.type == ClaimType.FACT and not self.evidence_ids:
-            raise ValueError("factual claims require at least one evidence id")
+    def unknown_grade_constraint(self) -> "Claim":
+        # FACT may omit evidence_ids: Feishu answers still post the body and
+        # separately state which sources were cited (or that none were).
         if self.type == ClaimType.UNKNOWN and self.grade != EvidenceGrade.UNKNOWN:
             raise ValueError("unknown claims must use the unknown evidence grade")
+        if self.type == ClaimType.FACT and self.grade in {
+            EvidenceGrade.A,
+            EvidenceGrade.B,
+        } and not self.evidence_ids:
+            raise ValueError("verified fact claims require evidence")
         return self
 
 
@@ -214,9 +219,20 @@ class ProjectAnswer(FrozenModel):
     skill: str = Field(default="project_knowledge", min_length=1, max_length=100)
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
     status: str
-    business_summary: str
-    technical_summary: str
-    conclusion: str = ""
+    # Deprecated compatibility projections. New code should use answer_text
+    # for presentation and claims/evidence for verification.
+    business_summary: str = Field(
+        default="",
+        description="Deprecated presentation fallback; use answer_text.",
+    )
+    technical_summary: str = Field(
+        default="",
+        description="Deprecated technical presentation fallback; use answer_text or evidence.",
+    )
+    conclusion: str = Field(
+        default="",
+        description="Deprecated presentation fallback; use answer_text.",
+    )
     claims: tuple[Claim, ...] = ()
     facts: tuple[Claim, ...] = ()
     inferences: tuple[Claim, ...] = ()
@@ -227,10 +243,18 @@ class ProjectAnswer(FrozenModel):
     policy_used: str = "unknown"
     unknowns: tuple[str, ...] = ()
     recommended_actions: tuple[ActionProposal, ...] = ()
+    # Complete Hermes-facing answer text. Evidence fields below remain the
+    # verified fact projection and must not replace this正文.
+    answer_text: str = ""
 
     @model_validator(mode="after")
     def claims_reference_known_evidence(self) -> "ProjectAnswer":
         known = {item.id for item in self.evidence}
+        for item in self.evidence:
+            if item.project != self.project:
+                raise ValueError("evidence belongs to a different project")
+            if not item.access_scope.startswith(f"project:{self.project.project_id}:"):
+                raise ValueError("evidence is outside the project access scope")
         missing = {
             evidence_id
             for claim in self.claims

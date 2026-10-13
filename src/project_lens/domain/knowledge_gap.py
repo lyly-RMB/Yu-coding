@@ -70,6 +70,8 @@ class KnowledgeGapCandidate(FrozenModel):
     suggested_source_type: str = Field(default="", max_length=100)
     severity: GapSeverity = GapSeverity.MEDIUM
     evidence_ids: tuple[UUID, ...] = ()
+    source_refs: tuple[str, ...] = ()
+    source_refs: tuple[str, ...] = ()
     conflicting_source_ids: tuple[str, ...] = ()
     suggested_owner_ids: tuple[str, ...] = ()
 
@@ -88,6 +90,8 @@ class KnowledgeGapCase(FrozenModel):
     impact: str = ""
     target_ref: str = ""
     evidence_ids: tuple[UUID, ...] = ()
+    source_refs: tuple[str, ...] = ()
+    source_refs: tuple[str, ...] = ()
     conflicting_source_ids: tuple[str, ...] = ()
     suggested_source_type: str = ""
     suggested_owner_ids: tuple[str, ...] = ()
@@ -165,6 +169,33 @@ class KnowledgeGapAction(FrozenModel):
     linked_task_id: str | None = None
     created_at: datetime
     completed_at: datetime | None = None
+
+
+class KnowledgeGapRecheck(FrozenModel):
+    id: UUID = Field(default_factory=uuid4)
+    gap_id: UUID
+    project: ProjectRef
+    trigger: str = Field(min_length=1, max_length=100)
+    actor_id: str = Field(min_length=1, max_length=200)
+    old_status: KnowledgeGapStatus
+    new_status: KnowledgeGapStatus
+    evidence_ids: tuple[UUID, ...] = ()
+    outcome: str = Field(min_length=1, max_length=2_000)
+    created_at: datetime
+
+
+class KnowledgeGapRecheckJob(FrozenModel):
+    id: UUID = Field(default_factory=uuid4)
+    idempotency_key: str = Field(min_length=1, max_length=500)
+    gap_id: UUID
+    project: ProjectRef
+    source_ref: str = Field(min_length=1, max_length=500)
+    revision: str = Field(min_length=1, max_length=100)
+    status: str = Field(default="pending", pattern="^(pending|running|failed|completed)$")
+    attempts: int = Field(default=0, ge=0)
+    last_error: str | None = Field(default=None, max_length=500)
+    created_at: datetime
+    updated_at: datetime
 
 
 def normalize_key_text(value: str) -> str:

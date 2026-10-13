@@ -157,7 +157,7 @@ def test_intro_card_has_overview_title_without_skill_on_first_screen(monkeypatch
     assert all(not item.startswith("**当前 Skill**") for item in contents)
     joined = "\n".join(contents)
     assert "**你问的是**" in joined
-    assert "**一句话结论**" in joined
+    assert "**回答**" in joined
     assert "**来源摘要**" in joined
     assert "**调试信息**" in joined
     assert "内部路由：project_knowledge" in joined
@@ -165,6 +165,30 @@ def test_intro_card_has_overview_title_without_skill_on_first_screen(monkeypatch
     debug_idx = joined.index("**调试信息**")
     ask_idx = joined.index("**你问的是**")
     assert ask_idx < debug_idx
+
+
+def test_card_prefers_complete_hermes_answer_text() -> None:
+    answer = _answer(skill="project_knowledge").model_copy(
+        update={"answer_text": "产品：范围已确认\n\n研发：接口待补测\n\n测试：回归进行中"}
+    )
+    card = render_answer_card(_run("总结当前进展"), answer)
+    joined = "\n".join(str(item.get("content") or "") for item in card["elements"])
+    assert "产品：范围已确认" in joined
+    assert "研发：接口待补测" in joined
+    assert "测试：回归进行中" in joined
+    assert joined.count("产品：范围已确认") == 1
+    assert "### 技术视图" not in joined
+
+
+def test_question_topic_does_not_implicitly_switch_role_view() -> None:
+    answer = _answer(skill="project_knowledge").model_copy(
+        update={"answer_text": "架构包含 API、Evidence 和 Hermes 三层。"}
+    )
+    card = render_answer_card(_run("介绍一下系统技术架构"), answer)
+    joined = "\n".join(str(item.get("content") or "") for item in card["elements"])
+    assert "**回答**\n架构包含 API、Evidence 和 Hermes 三层。" in joined
+    assert "### 技术视图" not in joined
+    assert joined.count("架构包含 API、Evidence 和 Hermes 三层。") == 1
 
 
 def test_insufficient_evidence_fallback_is_actionable() -> None:
@@ -177,7 +201,7 @@ def test_insufficient_evidence_fallback_is_actionable() -> None:
     )
     # Force empty summaries so the fallback leads (otherwise summaries still render).
     answer = answer.model_copy(
-        update={"business_summary": "", "technical_summary": ""}
+        update={"business_summary": "", "technical_summary": "", "conclusion": ""}
     )
     assert is_evidence_insufficient(answer) is True
     assert is_degraded_answer(answer) is True
@@ -187,34 +211,45 @@ def test_insufficient_evidence_fallback_is_actionable() -> None:
     assert "【降级标注】" in joined
     assert "HERMES_INSUFFICIENT_EVIDENCE" in joined
     assert "hermes.evidence" in joined
-    assert "当前资料不足" in joined
     assert "我查了什么" in joined or "我已经知道" in joined
     assert "还缺" in joined
     assert "建议" in joined
     assert "置信度 0%" not in joined
-    assert confidence_status_label(0.0, has_evidence=False) == "当前资料不足"
+    assert confidence_status_label(0.0, has_evidence=False) == "当前没有可用资料"
 
 
-def test_verifier_stock_summary_is_marked_degraded_not_hermes() -> None:
+def test_uncited_fact_is_normal_answer_with_source_line() -> None:
+    """Missing citations must not degrade — card states「引用资料：没有」."""
+
     answer = _answer(
         skill="project_investigation",
-        confidence=0.25,
+        confidence=0.7,
         evidence=(),
-        claims=(),
-        unknowns=("调查结束，但没有形成可展示的结论；请补充资料或更具体的文件路径。",),
+        claims=(
+            Claim(
+                text="默认滑动窗口约 12 轮、token 预算约 6000。",
+                type=ClaimType.FACT,
+                evidence_ids=(),
+                grade=EvidenceGrade.C,
+            ),
+        ),
+        unknowns=(),
     )
     answer = answer.model_copy(
         update={
-            "business_summary": "当前资料不足以形成带引用结论。已使用工具：无。",
-            "conclusion": "当前资料不足以形成带引用结论。",
+            "business_summary": "默认滑动窗口约 12 轮、token 预算约 6000。",
+            "conclusion": "默认滑动窗口约 12 轮、token 预算约 6000。",
         }
     )
-    assert is_degraded_answer(answer) is True
-    text = format_answer_as_text(_run("你看不到项目文档吗"), answer)
-    assert text.startswith(DEGRADED_ANSWER_TITLE)
-    assert "【降级标注】" in text
-    assert "HERMES_INSUFFICIENT_EVIDENCE" in text
-    assert "hermes.evidence" in text
+    assert is_degraded_answer(answer) is False
+    card = render_answer_card(_run("滑动窗口多大"), answer)
+    assert card["header"]["title"]["content"] != DEGRADED_ANSWER_TITLE
+    joined = "\n".join(str(item.get("content", "")) for item in card["elements"])
+    assert "【降级标注】" not in joined
+    assert "引用资料：没有" in joined
+    text = format_answer_as_text(_run("滑动窗口多大"), answer)
+    assert DEGRADED_ANSWER_TITLE not in text
+    assert "引用资料：没有" in text
 
 
 def test_cited_facts_keep_normal_title_despite_dimension_unknowns() -> None:
@@ -306,7 +341,7 @@ def test_audit_debug_zone_omits_secrets_and_is_not_first_screen(monkeypatch) -> 
     assert "**调试信息**" in joined
     assert "api_key" not in joined.lower()
     assert "sk-" not in joined.lower()
-    assert "**一句话结论**" in joined
+    assert "**回答**" in joined
     assert "**来源摘要**" in joined
 
 
@@ -340,9 +375,16 @@ def test_feishu_intro_live_path_uses_overview_view(monkeypatch) -> None:
         for element in card.get("elements", [])
         if isinstance(element, dict)
     )
+    assert "**当前 Skill**" not in card_text
     if title == DEGRADED_ANSWER_TITLE:
         assert "【降级标注】" in card_text
-    assert "**当前 Skill**" not in card_text
-    assert "Evidence is insufficient." in card_text or "当前资料不足" in card_text
-    assert "**一句话结论**" not in card_text
-    assert "**来源摘要**" not in card_text
+        assert (
+            "Evidence is insufficient." in card_text
+            or "当前没有" in card_text
+            or "当前资料" in card_text
+            or "我查了什么" in card_text
+        )
+        assert "**一句话结论**" not in card_text
+        assert "**来源摘要**" not in card_text
+    else:
+        assert "**一句话结论**" in card_text or "来源摘要" in card_text or "引用资料" in card_text

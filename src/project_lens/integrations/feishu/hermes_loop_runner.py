@@ -12,6 +12,7 @@ from __future__ import annotations
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 import json
+import re
 import sys
 import threading
 from pathlib import Path
@@ -23,6 +24,7 @@ from project_lens.domain.models import ProjectRef
 from project_lens.integrations.feishu.hermes_errors import (
     HERMES_INVALID_RESULT,
     HERMES_NO_EVIDENCE,
+    HERMES_PARSE_FAILED,
     HERMES_UNAVAILABLE,
     classify_hermes_failure,
 )
@@ -51,6 +53,11 @@ _REQUEST_CTX: ContextVar[ToolLoopRequestContext | None] = ContextVar(
 )
 _REGISTER_LOCK = threading.Lock()
 
+_CONTEXT_EVIDENCE_RE = re.compile(
+    r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b"
+)
+_CONTEXT_EVIDENCE_FIELD_RE = re.compile(r"\bevidence_ids=([^\r\n]+)")
+
 
 @dataclass
 class HermesLoopToolCall:
@@ -59,9 +66,49 @@ class HermesLoopToolCall:
     envelope: dict[str, Any]
 
 
+def _add_inherited_context_evidence(
+    *, context_text: str, tool_calls: tuple[HermesLoopToolCall, ...]
+) -> tuple[HermesLoopToolCall, ...]:
+    existing: set[str] = set()
+    for call in tool_calls:
+        for ref in (call.envelope or {}).get("evidence_refs") or (call.envelope or {}).get("citations") or ():
+            if isinstance(ref, dict) and ref.get("id"):
+                existing.add(str(ref["id"]))
+    inherited: list[dict[str, object]] = []
+    scoped_ids = [
+        evidence_id
+        for field in _CONTEXT_EVIDENCE_FIELD_RE.findall(context_text or "")
+        for evidence_id in _CONTEXT_EVIDENCE_RE.findall(field)
+    ]
+    for raw in dict.fromkeys(scoped_ids):
+        if raw in existing:
+            continue
+        inherited.append({
+            "id": raw,
+            "kind": "document",
+            "source_uri": f"conversation:evidence/{raw}",
+            "summary": "继承自前序角色讨论的证据",
+        })
+    if not inherited:
+        return tool_calls
+    synthetic = HermesLoopToolCall(
+        name="projectlens_inherited_context_evidence",
+        arguments={"count": len(inherited)},
+        envelope={
+            "ok": True,
+            "tool_name": "projectlens_inherited_context_evidence",
+            "citations": inherited,
+            "evidence_refs": inherited,
+            "summary": "inherited evidence from prior conversation turns",
+        },
+    )
+    return (*tool_calls, synthetic)
+
+
 @dataclass
 class HermesLoopRunResult:
     final_response: str
+    answer_text: str = ""
     tool_calls: tuple[HermesLoopToolCall, ...] = ()
     messages: tuple[Any, ...] = ()
     ok: bool = True
@@ -89,7 +136,15 @@ def _base_system_prompt() -> str:
     return (
         "You answer questions about a software project. Use only the projectlens_* read-only tools. "
         "Cite evidence from tool results. Never invent facts. Never apply, PR, deploy, rollback, or restart. "
-        "For project identity or introduction, prefer projectlens_read_project_file on README.md."
+        "For project identity or introduction, prefer projectlens_read_project_file on docs/projectlens-product-document.md. "
+        "README.md may be unavailable in restricted ProjectSpace scopes. "
+        "After completing tool calls, return ONLY one valid JSON object, with no Markdown fences. "
+        "Put the complete user-facing response in answer_text. Put evidence data separately in facts, inferences, "
+        "unknowns, next_actions, and citations; each fact must have a text field and citations must reference tool evidence. "
+        "For a multi-role discussion summary, format answer_text as 产品、研发、测试 sections when requested. "
+        "Do not put presentation sections into the evidence fields, and do not compress answer_text to one sentence. "
+        "Return one complete answer only; do not append technical/audience view duplicates. "
+        "Do not finish with a natural-language answer."
     )
 
 
@@ -98,7 +153,7 @@ def _repair_answer_draft(*, agent: Any, raw_response: str) -> str:
 
     excerpt = raw_response.strip()[:4_000]
     prompt = (
-        "Return only a valid JSON AnswerDraft object. Do not call tools, "
+        "Return ONLY a valid JSON object, with no Markdown fences. Do not call tools, "
         "do not add facts, and do not change the meaning. Preserve citations "
         "only when they are present in the previous answer. Use empty arrays "
         "for fields you cannot support. Previous answer:\n"
@@ -124,7 +179,8 @@ class HermesAIAgentLoopRunner:
     model: str = "gpt-5.4-mini"
     base_url: str | None = None
     api_key: str | None = field(default=None, repr=False)
-    max_iterations: int = 8
+    # Keep Feishu replies bounded when a tool call or provider retry stalls.
+    max_iterations: int = 1
     context_governor: ContextGovernor = field(default_factory=ContextGovernor)
     _registered: bool = field(default=False, init=False, repr=False)
 
@@ -196,6 +252,11 @@ class HermesAIAgentLoopRunner:
                     chat_id=chat_id,
                     platform="feishu",
                 )
+                # AIAgent/plugin discovery re-registers projectlens_* with the
+                # HTTP ApiClient (often a wrong/self port). Feishu loop must keep
+                # the in-process Tool Envelope client so tools do not 10061.
+                if hasattr(self.client, "call_tool"):
+                    self._ensure_tools_registered(force=True)
                 try:
                     raw = agent.run_conversation(q)
                 except Exception as exc:  # noqa: BLE001
@@ -241,6 +302,13 @@ class HermesAIAgentLoopRunner:
         if recovery_attempts:
             budget = _recovery_budget_audit(budget, attempts=recovery_attempts, action=recovery_action, first_error=recovery_trigger)
         tool_calls = extract_tool_calls_from_messages(messages)
+        # Carry evidence IDs from selected prior conversation turns into the
+        # current verification ledger so summary answers can cite inherited
+        # sources even when Hermes does not repeat the retrieval tool call.
+        tool_calls = _add_inherited_context_evidence(
+            context_text=prepared_context.text,
+            tool_calls=tool_calls,
+        )
         final_response = str(raw.get("final_response") or "").strip()
         failed = bool(raw.get("failed") or raw.get("error"))
         if failed:
@@ -251,7 +319,7 @@ class HermesAIAgentLoopRunner:
                 messages=messages, context_budget=budget,
             )
         from project_lens.agent.hermes_answer_parser import (
-            parse_hermes_answer,
+            extract_hermes_answer_text,
             parse_structured_hermes_answer,
         )
         from project_lens.agent.hermes_answer import project_answer_from_hermes
@@ -262,6 +330,10 @@ class HermesAIAgentLoopRunner:
                 repair_messages = tuple(repair_raw.get("messages") or ())
                 messages = messages + repair_messages
                 tool_calls = extract_tool_calls_from_messages(messages)
+                tool_calls = _add_inherited_context_evidence(
+                    context_text=prepared_context.text,
+                    tool_calls=tool_calls,
+                )
                 repaired_response = str(repair_raw.get("final_response") or "").strip()
                 if repaired_response:
                     final_response = repaired_response
@@ -295,6 +367,7 @@ class HermesAIAgentLoopRunner:
                 default_code=HERMES_NO_EVIDENCE, context_budget=budget,
             )
 
+        answer_text = extract_hermes_answer_text(final_response)
         answer_draft = parse_structured_hermes_answer(final_response)
         if answer_draft is None:
             repaired_response = _repair_answer_draft(
@@ -304,17 +377,27 @@ class HermesAIAgentLoopRunner:
             repaired_draft = parse_structured_hermes_answer(repaired_response)
             if repaired_draft is not None:
                 final_response = repaired_response
+                answer_text = extract_hermes_answer_text(repaired_response) or answer_text
                 answer_draft = repaired_draft
         if answer_draft is None:
-            answer_draft = parse_hermes_answer(final_response)
+            return _failure_result(
+                "Hermes 返回了未结构化文本，未能解析为 AnswerDraft。",
+                final_response=final_response,
+                tool_calls=tool_calls,
+                messages=messages,
+                default_code=HERMES_PARSE_FAILED,
+                context_budget=budget,
+            )
         verified_answer = project_answer_from_hermes(
             project=project,
             draft=answer_draft,
             tool_calls=tool_calls,
+            answer_text=answer_text,
         )
 
         return HermesLoopRunResult(
             final_response=final_response,
+            answer_text=answer_text,
             tool_calls=tool_calls,
             messages=messages,
             ok=True,
@@ -332,11 +415,11 @@ class HermesAIAgentLoopRunner:
         if path not in sys.path:
             sys.path.insert(0, path)
 
-    def _ensure_tools_registered(self) -> None:
-        if self._registered:
+    def _ensure_tools_registered(self, *, force: bool = False) -> None:
+        if self._registered and not force:
             return
         with _REGISTER_LOCK:
-            if self._registered:
+            if self._registered and not force:
                 return
             from tools.registry import registry
 
@@ -406,7 +489,7 @@ def _run_evidence_recovery(*, agent: Any, question: str) -> dict[str, Any] | Non
         "Continue the same read-only investigation. The previous tool result was "
         "empty, failed, or did not provide citation-ready evidence. Do not answer "
         "yet. For project identity or introduction, call projectlens_read_project_file "
-        "on README.md first; if that path is unavailable, call "
+        "on docs/projectlens-product-document.md first; if that path is unavailable, call "
         "projectlens_list_project_files for README/docs and then read one public file. "
         "Use projectlens_search_context only as a supplement. Do not call "
         "projectlens_authorized_evidence again unless needed."
@@ -454,7 +537,7 @@ def _failure_result(
 
 
 def _is_recoverable_hermes_failure(error: str) -> bool:
-    """Allow one retry for transient provider or context-budget failures."""
+    """Recognize transient provider, malformed-stream, or budget failures."""
 
     lowered = error.casefold()
     if any(
@@ -493,6 +576,13 @@ def _is_recoverable_hermes_failure(error: str) -> bool:
             "rate limit",
             "gateway",
             "overloaded",
+            # Some OpenAI-compatible gateways occasionally return a valid
+            # response followed by an extra JSON/SSE fragment. Hermes reports
+            # this as json.JSONDecodeError("Extra data"); retrying the same
+            # request is safe because no tool call has been executed yet.
+            "extra data",
+            "malformed streaming",
+            "invalid json",
         )
     )
 

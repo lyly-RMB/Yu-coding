@@ -1,0 +1,25 @@
+{
+  "scenario_id": "feishu-release-risk-001",
+  "title": "发布风险评审",
+  "project_id": "projectlens",
+  "reset_session_before_start": true,
+  "messages": [
+    {"sequence": 1, "role": "manager", "text": "明天要发布支付重试改动，目前进度怎么样？"},
+    {"sequence": 2, "role": "developer", "text": "代码已经完成，正在补单元测试。"},
+    {"sequence": 3, "role": "qa", "text": "第三次重试场景还没有在测试环境跑通。"},
+    {"sequence": 4, "role": "developer", "text": "测试环境的支付网关今天不稳定。"},
+    {"sequence": 5, "role": "manager", "text": "如果今天无法完成验证，发布是否应该延期？"},
+    {"sequence": 6, "role": "product", "text": "这个改动会影响所有银行卡支付用户。"}
+  ],
+  "interventions": [
+    {"after_sequence": 4, "role": "manager", "text": "请基于当前讨论整理发布状态、已知事实、风险和缺失证据。"},
+    {"after_sequence": 6, "role": "manager", "text": "当前发布是否存在阻断风险？哪些是事实，哪些只是判断？请列出继续发布前必须完成的检查项。"}
+  ],
+  "acceptance_checks": [
+    "合并代码完成、测试未完成、环境不稳定和用户影响证据",
+    "将可能延期表达为风险或建议，不擅自宣布延期",
+    "指出第三次重试缺少测试证据",
+    "识别需要项目经理或管理者决策的事项",
+    "关键风险有来源或明确标记为未知"
+  ]
+}

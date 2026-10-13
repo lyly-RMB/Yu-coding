@@ -104,7 +104,7 @@ class ContextFreezeError(RuntimeError):
         self.code = code
         self.memory_id = memory_id
         self.snapshot = snapshot
-        super().__init__(message)
+        super().__init__(f"{code}: {message}")
 
 
 class ContextSnapshotStore(Protocol):

@@ -87,8 +87,8 @@ def answer_view_title(view: AnswerView) -> str:
 
 DEGRADED_ANSWER_TITLE = "ProjectLens 降级回复（非 Hermes 完整结论）"
 
+# Only true empty/system-fallback copy. Missing citations are NOT degrade.
 _DEGRADED_SUMMARY_MARKERS = (
-    "当前资料不足以形成带引用结论",
     "调查完成，暂无结论",
     "Hermes 未返回最终答案",
     "Hermes 返回了未结构化文本",
@@ -96,7 +96,6 @@ _DEGRADED_SUMMARY_MARKERS = (
 _DEGRADED_UNKNOWN_MARKERS = (
     "调查结束，但没有形成可展示的结论",
     "Hermes 未返回最终答案",
-    "尚未完成 Evidence 引用校验",
 )
 
 
@@ -106,17 +105,22 @@ def has_cited_fact(answer: ProjectAnswer) -> bool:
     )
 
 
+def has_answer_fact(answer: ProjectAnswer) -> bool:
+    """True when Hermes produced at least one FACT statement (cited or not)."""
+
+    return any(claim.type == ClaimType.FACT for claim in answer.claims)
+
+
 def is_degraded_answer(answer: ProjectAnswer) -> bool:
-    """True when the posted body is a system fallback, not a Hermes verified conclusion.
+    """True only for empty / parse-failure fallbacks — never for missing citations.
 
-    Covers verifier stock lines, empty-draft fallbacks, and the insufficient-evidence
-    card path — even when they still render under a normal answer title.
-
-    Partial unknowns (owner / README / changelog gaps) must not degrade an answer
-    that already has citation-checked FACT claims.
+    Citation status is stated on the card as「引用资料」/「没有」, not as a degrade banner.
     """
 
-    if has_cited_fact(answer):
+    if has_answer_fact(answer) or has_cited_fact(answer):
+        return False
+    if (answer.business_summary or "").strip() and not _unknowns_say_search_failed(answer):
+        # Prose answer without structured FACT still posts normally.
         return False
     if is_evidence_insufficient(answer):
         return True
@@ -135,8 +139,8 @@ def degraded_answer_banner(
     if answer is None:
         return (
             "**【降级标注】本条不是 Hermes 完整项目回答**\n"
-            "原因：没有通过引用校验的可展示结论，或当前资料不足。"
-            "正文为系统兜底文案，请勿当作已核实的项目结论。"
+            "原因：没有可展示的结论正文。"
+            "正文为系统兜底文案。"
         )
     from project_lens.integrations.feishu.hermes_errors import (
         format_degraded_banner_for_feishu,
@@ -144,7 +148,7 @@ def degraded_answer_banner(
 
     return (
         f"**{format_degraded_banner_for_feishu(answer, run_id=run_id)}**\n"
-        "正文为系统兜底文案，请勿当作已核实的项目结论。"
+        "正文为系统兜底文案。"
     )
 
 
@@ -222,35 +226,21 @@ def select_investigation_answer_view(
     return AnswerView.GENERAL_REPLY
 
 
-def is_investigation_style(view: AnswerView) -> bool:
-    """Views commonly produced by read_agent free questions."""
-
-    return view in {
-        AnswerView.GENERAL_REPLY,
-        AnswerView.CODE_EXPLANATION,
-        AnswerView.REASON_ANALYSIS,
-        AnswerView.ARCHITECTURE_EXPLAIN,
-        AnswerView.PROJECT_INVESTIGATION,
-        AnswerView.CHANGE_IMPACT,
-    }
-
-
 def is_evidence_insufficient(answer: ProjectAnswer) -> bool:
-    """True when the card should lead with the insufficient-evidence fallback."""
+    """True when the card should lead with the empty-result fallback.
 
+    Missing claim↔evidence binding alone is not insufficient — the card states
+    「引用资料：没有」 instead.
+    """
+
+    if has_answer_fact(answer) or has_cited_fact(answer):
+        return False
     if answer.evidence:
-        # Investigation may have tool evidence but still no citable facts.
-        if has_cited_fact(answer):
-            return False
         if answer.confidence > 0.2 and (answer.business_summary or "").strip():
-            # Weak but present summary — still show normal layout unless unknowns
-            # explicitly say the search failed.
             if not _unknowns_say_search_failed(answer):
                 return False
         if _unknowns_say_search_failed(answer):
             return True
-        return False
-    if has_cited_fact(answer):
         return False
     # Gap reports and follow-up/role views still have useful summaries or unknowns.
     if answer.unknowns and answer.confidence >= 0.2:
@@ -264,15 +254,26 @@ def is_evidence_insufficient(answer: ProjectAnswer) -> bool:
 
 def _unknowns_say_search_failed(answer: ProjectAnswer) -> bool:
     blob = " ".join(answer.unknowns)
-    markers = ("未获得可引用", "缺少可引用", "查了", "已尝试工具", "缺什么", "没有找到")
+    # Keep markers specific to retrieval failure stock copy. Do not match
+    # ordinary gap-report prose such as "没有找到负责人" or "缺什么资料".
+    markers = (
+        "未获得可引用",
+        "缺少可引用",
+        "已尝试工具",
+        "检索失败",
+        "查了但没有得到",
+        "工具调用失败",
+    )
     return any(marker in blob for marker in markers)
 
 
 def confidence_status_label(confidence: float, *, has_evidence: bool) -> str:
     """Map internal confidence to a human-readable status (not a raw percent)."""
 
-    if not has_evidence or confidence <= 0:
-        return "当前资料不足"
+    if confidence <= 0 and not has_evidence:
+        return "当前没有可用资料"
+    if not has_evidence:
+        return "没有引用资料"
     if confidence < 0.4:
         return "证据较少，仅供参考"
     if confidence <= 0.7:

@@ -85,7 +85,7 @@ def test_runtime_context_resolver_uses_role_and_chat_intersection(tmp_path: Path
                         "allowed_tools": [
                             "search_context",
                             "read_project_file",
-                            "query_graph",
+                            "authorized_evidence",
                         ],
                         "forbidden_sources": ["secrets/"],
                         "answer_depth": "detailed",
@@ -206,7 +206,7 @@ def test_effective_scope_uses_intersection_not_union() -> None:
         project=project,
         role=RoleKind.DEVELOPER,
         readable_sources=("src/", "tests/", "knowledge/"),
-        allowed_tools=("search_context", "read_project_file", "query_graph"),
+        allowed_tools=("search_context", "read_project_file", "authorized_evidence"),
     )
     chat = ChatVisibilityPolicy(
         chat_id="chat-1",
@@ -223,4 +223,4 @@ def test_effective_scope_uses_intersection_not_union() -> None:
     assert scope.allowed_tools == ("search_context",)
     assert "tests/" not in scope.readable_sources
     assert "docs/" not in scope.readable_sources
-    assert "query_graph" not in scope.allowed_tools
+    assert "authorized_evidence" not in scope.allowed_tools

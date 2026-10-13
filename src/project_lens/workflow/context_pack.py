@@ -132,17 +132,57 @@ class ContextPack(FrozenModel):
         }
 
 
+# Session bag keys that are not TaskScratchpad fields (attached by ConversationService).
+_SESSION_SCRATCHPAD_BAG_KEYS = frozenset(
+    {"runtime_access", "hermes_tool_loop", "hermes_tool_loops"}
+)
+_NOTE_VALUE_MAX = 2_000
+
+
+def _coerce_notes(raw_notes: object) -> dict[str, str]:
+    """Keep notes as a flat str→str map; never stringify nested scratchpads."""
+
+    if not isinstance(raw_notes, dict):
+        return {}
+    notes: dict[str, str] = {}
+    for key, value in raw_notes.items():
+        name = str(key).strip()
+        if not name or name in _SESSION_SCRATCHPAD_BAG_KEYS:
+            continue
+        # Recursive self-key from prior bag dumps — drop entirely.
+        if name == "notes":
+            continue
+        # Nested dict/list here is almost always a prior bag dump — drop it.
+        if isinstance(value, (dict, list, tuple)):
+            continue
+        text = str(value)
+        if len(text) > _NOTE_VALUE_MAX:
+            text = text[:_NOTE_VALUE_MAX]
+        notes[name] = text
+    return notes
+
+
 def task_scratchpad_from_session(
     session: ConversationSession | None,
 ) -> TaskScratchpad | None:
     if session is None or not session.task_scratchpad:
         return None
-    raw = dict(session.task_scratchpad)
+    raw = {
+        key: value
+        for key, value in dict(session.task_scratchpad).items()
+        if key not in _SESSION_SCRATCHPAD_BAG_KEYS
+    }
+    if "notes" in raw:
+        raw["notes"] = _coerce_notes(raw.get("notes"))
     try:
         return TaskScratchpad.model_validate(raw)
     except Exception:  # noqa: BLE001 - reserved bag may hold partial keys
-        notes = {str(key): str(value) for key, value in raw.items()}
-        return TaskScratchpad(notes=notes)
+        # Partial / legacy bags: keep only a coerced notes map. Never dump the
+        # whole bag via str() — that recursively balloons session payloads.
+        notes_raw = raw.get("notes")
+        if isinstance(notes_raw, dict):
+            return TaskScratchpad(notes=_coerce_notes(notes_raw))
+        return TaskScratchpad(notes=_coerce_notes(raw))
 
 
 def build_context_pack(

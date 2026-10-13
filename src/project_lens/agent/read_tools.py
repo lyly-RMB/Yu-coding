@@ -1,4 +1,4 @@
-"""Read-only AgentLoop tools backed by ReadContextGateway / ToolGateway."""
+"""Read-only investigation tools backed by ReadContextGateway / ToolGateway."""
 
 from __future__ import annotations
 
@@ -14,12 +14,9 @@ from project_lens.context.source_records import FactType, SourceRecord
 from project_lens.domain.models import (
     Evidence,
     EvidenceType,
-    GraphEvidence,
     ProjectRef,
     SourceRef,
 )
-from project_lens.graph.models import GraphNodeKind
-from project_lens.graph.query import GraphQuery
 from project_lens.project_space.policies import EffectiveAccessScope, source_path_allowed
 from project_lens.runtime.read_gateway import ReadContextGateway
 from project_lens.runtime.tool_gateway import ToolGateway
@@ -31,12 +28,8 @@ READ_ONLY_INVESTIGATION_TOOLS = frozenset(
         "search_context",
         "authorized_evidence",
         "list_knowledge_gaps",
-        "query_graph",
         "read_project_file",
         "list_project_files",
-        "grep_project_code",
-        "search_project_code",
-        "read_project_file_range",
     }
 )
 
@@ -98,7 +91,6 @@ def build_investigation_tool_registry(
     registry.register(SearchContextTool(**gateway_kwargs))
     registry.register(AuthorizedEvidenceTool(**gateway_kwargs))
     registry.register(ListKnowledgeGapsTool(**gateway_kwargs))
-    registry.register(QueryGraphTool(**gateway_kwargs))
     if tool_gateway is not None:
         file_kwargs = {
             "project": project,
@@ -109,9 +101,6 @@ def build_investigation_tool_registry(
         }
         registry.register(ReadProjectFileTool(**file_kwargs))
         registry.register(ListProjectFilesTool(**file_kwargs))
-        registry.register(GrepProjectCodeTool(**file_kwargs))
-        registry.register(SearchProjectCodeTool(**file_kwargs))
-        registry.register(ReadProjectFileRangeTool(**file_kwargs))
     return registry
 
 
@@ -376,83 +365,6 @@ class ListKnowledgeGapsTool(BaseTool):
         return json.dumps({"gaps": gaps}, ensure_ascii=False)
 
 
-class QueryGraphTool(BaseTool):
-    name = "query_graph"
-    description = "Query project relationship graph paths."
-    category = ToolCategory.READ
-    required_permission = "project:read"
-
-    def __init__(
-        self,
-        *,
-        project: ProjectRef,
-        access: AccessContext,
-        gateway: ReadContextGateway,
-        ledger: InvestigationLedger,
-        effective_scope: EffectiveAccessScope | None = None,
-    ) -> None:
-        self._project = project
-        self._access = access
-        self._gateway = gateway
-        self._ledger = ledger
-        self._scope = effective_scope
-
-    def parameters_schema(self) -> dict[str, Any]:
-        return {
-            "type": "object",
-            "properties": {
-                "relation": {"type": "string"},
-                "start_kind": {"type": "string"},
-                "start_label": {"type": "string"},
-                "limit": {"type": "integer"},
-            },
-            "required": [],
-            "additionalProperties": False,
-        }
-
-    async def execute(self, **kwargs: Any) -> str:
-        start_kind = kwargs.get("start_kind")
-        kind = None
-        if start_kind:
-            try:
-                kind = GraphNodeKind(str(start_kind))
-            except ValueError:
-                kind = None
-        query = GraphQuery(
-            start_kind=kind,
-            start_label=str(kwargs["start_label"]) if kwargs.get("start_label") else None,
-            relation=str(kwargs["relation"]) if kwargs.get("relation") else None,
-            limit=min(max(int(kwargs.get("limit") or 5), 1), 20),
-        )
-        paths: tuple[GraphEvidence, ...] = self._gateway.query_graph(
-            self._project,
-            self._access,
-            query,
-            scope=self._scope,
-        )
-        cited_count = 0
-        for path in paths:
-            if path.cited_evidence:
-                self._ledger.add_many(path.cited_evidence)
-                cited_count += len(path.cited_evidence)
-            # Fallback: evidence_ids without bodies still need ledger coverage
-            # only when cited_evidence already carried the bodies (above).
-            # If cited_evidence is empty, evidence_ids alone cannot pass verifier.
-        self._ledger.record_tool(
-            self.name,
-            {"path_count": len(paths), "cited_evidence_count": cited_count},
-        )
-        rows = [
-            {
-                "summary": path.summary or " / ".join(path.path_labels),
-                "evidence_ids": [str(eid) for eid in path.evidence_ids[:6]],
-                "cited_evidence_ids": [str(item.id) for item in path.cited_evidence[:6]],
-            }
-            for path in paths[:8]
-        ]
-        return json.dumps({"paths": rows}, ensure_ascii=False)
-
-
 class ReadProjectFileTool(BaseTool):
     name = "read_project_file"
     description = "Read a project file under the ProjectSpace allowlist (read-only)."
@@ -594,162 +506,6 @@ class ListProjectFilesTool(BaseTool):
         )
 
 
-class GrepProjectCodeTool(BaseTool):
-    name = "grep_project_code"
-    description = "Grep text in allowlisted project files (read-only)."
-    category = ToolCategory.READ
-    required_permission = "project:read"
-
-    def __init__(
-        self,
-        *,
-        project: ProjectRef,
-        gateway: ToolGateway,
-        ledger: InvestigationLedger,
-        access_scope: str,
-        effective_scope: EffectiveAccessScope | None = None,
-    ) -> None:
-        self._project = project
-        self._gateway = gateway
-        self._ledger = ledger
-        self._access_scope = access_scope
-        self._scope = effective_scope
-
-    def parameters_schema(self) -> dict[str, Any]:
-        return {
-            "type": "object",
-            "properties": {
-                "pattern": {"type": "string"},
-                "prefix": {"type": "string"},
-                "limit": {"type": "integer"},
-            },
-            "required": ["pattern"],
-            "additionalProperties": False,
-        }
-
-    async def execute(self, **kwargs: Any) -> str:
-        pattern = str(kwargs["pattern"])
-        prefix = str(kwargs.get("prefix") or "src/")
-        limit = int(kwargs.get("limit") or 20)
-        _enforce_file_scope(self._scope, self.name, prefix)
-        hits = self._gateway.grep_project_code(pattern, prefix=prefix, limit=limit)
-        return self._pack_hits(pattern=pattern, prefix=prefix, hits=hits)
-
-    def _pack_hits(
-        self, *, pattern: str, prefix: str, hits: list[dict[str, Any]]
-    ) -> str:
-        body_lines = [
-            f"{hit['path']}:{hit['line']}: {hit['text']}" for hit in hits[:20]
-        ]
-        body = "\n".join(body_lines) if body_lines else f"(no hits for {pattern})"
-        evidence = _code_snippet_evidence(
-            project=self._project,
-            access_scope=self._access_scope,
-            source_id=f"grep:{pattern[:80]}",
-            content=body,
-            tool=self.name,
-            metadata={"pattern": pattern[:120], "hit_count": len(hits), "prefix": prefix},
-        )
-        self._ledger.add_evidence(evidence)
-        self._ledger.record_tool(
-            self.name, {"pattern": pattern[:120], "hit_count": len(hits)}
-        )
-        return json.dumps(
-            {
-                "pattern": pattern,
-                "hits": hits,
-                "evidence_id": str(evidence.id),
-            },
-            ensure_ascii=False,
-        )
-
-
-class SearchProjectCodeTool(GrepProjectCodeTool):
-    name = "search_project_code"
-    description = "Search code under ProjectSpace allowlist (alias of grep_project_code)."
-
-    async def execute(self, **kwargs: Any) -> str:
-        pattern = str(kwargs["pattern"])
-        prefix = str(kwargs.get("prefix") or "src/")
-        limit = int(kwargs.get("limit") or 20)
-        _enforce_file_scope(self._scope, self.name, prefix)
-        hits = self._gateway.search_project_code(pattern, prefix=prefix, limit=limit)
-        return self._pack_hits(pattern=pattern, prefix=prefix, hits=hits)
-
-
-class ReadProjectFileRangeTool(BaseTool):
-    name = "read_project_file_range"
-    description = "Read a line range from an allowlisted project file (read-only)."
-    category = ToolCategory.READ
-    required_permission = "project:read"
-
-    def __init__(
-        self,
-        *,
-        project: ProjectRef,
-        gateway: ToolGateway,
-        ledger: InvestigationLedger,
-        access_scope: str,
-        effective_scope: EffectiveAccessScope | None = None,
-    ) -> None:
-        self._project = project
-        self._gateway = gateway
-        self._ledger = ledger
-        self._access_scope = access_scope
-        self._scope = effective_scope
-
-    def parameters_schema(self) -> dict[str, Any]:
-        return {
-            "type": "object",
-            "properties": {
-                "path": {"type": "string"},
-                "start_line": {"type": "integer"},
-                "end_line": {"type": "integer"},
-            },
-            "required": ["path"],
-            "additionalProperties": False,
-        }
-
-    async def execute(self, **kwargs: Any) -> str:
-        relative = str(kwargs["path"]).replace("\\", "/").lstrip("./")
-        _enforce_file_scope(self._scope, self.name, relative)
-        start = int(kwargs.get("start_line") or 1)
-        end = int(kwargs.get("end_line") or start + 79)
-        payload = self._gateway.read_project_file_range(
-            relative, start_line=start, end_line=end
-        )
-        content = str(payload.get("content") or "")
-        evidence = _code_snippet_evidence(
-            project=self._project,
-            access_scope=self._access_scope,
-            source_id=f"{relative}:{payload.get('start_line')}-{payload.get('end_line')}",
-            content=content,
-            tool=self.name,
-            metadata={
-                "path": relative,
-                "start_line": payload.get("start_line"),
-                "end_line": payload.get("end_line"),
-            },
-        )
-        self._ledger.add_evidence(evidence)
-        self._ledger.record_tool(
-            self.name,
-            {
-                "path": relative,
-                "start_line": payload.get("start_line"),
-                "end_line": payload.get("end_line"),
-            },
-        )
-        return json.dumps(
-            {
-                **payload,
-                "evidence_id": str(evidence.id),
-                "content": content[:2000],
-            },
-            ensure_ascii=False,
-        )
-
-
 def _enforce_file_scope(
     scope: EffectiveAccessScope | None,
     tool_name: str,
@@ -758,13 +514,7 @@ def _enforce_file_scope(
     if scope is None:
         raise PermissionError("effective access scope is required")
     allowed = tool_name in scope.allowed_tools or (
-        tool_name in {
-            "list_project_files",
-            "grep_project_code",
-            "search_project_code",
-            "read_project_file_range",
-        }
-        and "read_project_file" in scope.allowed_tools
+        tool_name == "list_project_files" and "read_project_file" in scope.allowed_tools
     )
     if not allowed:
         raise PermissionError(f"tool {tool_name} is not allowed for this scope")

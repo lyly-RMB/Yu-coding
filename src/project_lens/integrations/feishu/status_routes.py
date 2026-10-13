@@ -31,6 +31,7 @@ def feishu_status(request: Request) -> dict[str, object]:
             (settings.model_openai_api_key or "").strip()
         ),
         "hermes_tool_loop_enabled": True,
+        "hermes_loop_timeout_seconds": settings.feishu_hermes_loop_timeout_seconds,
         "hermes_bridge_active": (
             getattr(request.app.state, "feishu_hermes_tool_loop_bridge", None) is not None
         ),
@@ -57,4 +58,41 @@ def feishu_status(request: Request) -> dict[str, object]:
             )
         ],
         "service_auth_configured": bool((settings.service_token or "").strip()),
+        "knowledge_gap_digest_enabled": settings.feishu_knowledge_gap_digest_enabled,
+        "knowledge_gap_digest_interval_seconds": settings.feishu_knowledge_gap_digest_interval_seconds,
+        "knowledge_gap_digest_timezone": settings.feishu_knowledge_gap_digest_timezone,
+        "knowledge_gap_digest_running": bool(
+            getattr(getattr(request.app.state, "knowledge_gap_digest_runner", None), "running", False)
+        ),
+        "knowledge_gap_digest_last_results": [
+            {
+                "project_id": result.project_id,
+                "period_start": result.period_start.isoformat(),
+                "period_end": result.period_end.isoformat(),
+                "sent": result.sent,
+                "failed": result.failed,
+                "skipped": result.skipped,
+                "dry_run": result.dry_run,
+            }
+            for result in getattr(
+                getattr(request.app.state, "knowledge_gap_digest_runner", None),
+                "last_results",
+                (),
+            )
+            ],
+        "long_connection_enabled": bool(
+            getattr(getattr(request.app.state, "feishu_long_connection", None), "enabled", False)
+        ),
+        "long_connection_status": getattr(
+            getattr(request.app.state, "feishu_long_connection", None), "status", "unconfigured"
+        ),
+        "long_connection_last_connected_at": (
+            getattr(getattr(request.app.state, "feishu_long_connection", None), "last_connected_at", None).isoformat()
+            if getattr(getattr(request.app.state, "feishu_long_connection", None), "last_connected_at", None)
+            else None
+        ),
+        "long_connection_last_error": getattr(
+            getattr(request.app.state, "feishu_long_connection", None), "last_error", None
+        ),
+        "context_preview_enabled": settings.feishu_context_preview_enabled,
     }

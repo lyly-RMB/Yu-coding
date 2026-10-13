@@ -1,6 +1,6 @@
 """ContextPrompt-only ModelProvider contracts.
 
-Distinct from runtime.types.ModelProvider (AgentLoop chat/tools).
+Distinct from runtime.types.ModelProvider (chat/tools).
 Harness providers never accept raw Feishu text or EvidenceIndex access.
 """
 

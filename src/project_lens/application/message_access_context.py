@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from dataclasses import replace
 
 from project_lens.domain.identity import ActorContext, ChatType
 from project_lens.project_space.policies import (
@@ -40,9 +41,12 @@ class MessageAccessContext:
             chat_type=actor.chat_type,
             identity_source=actor.source,
         )
+        scope = resolved.effective_scope
+        if actor.physical_actor_id:
+            scope = replace(scope, physical_actor_id=actor.physical_actor_id)
         return cls(
             actor=actor,
-            effective_scope=resolved.effective_scope,
+            effective_scope=scope,
             message_id=message_id,
         )
 

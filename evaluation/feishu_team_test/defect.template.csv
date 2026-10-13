@@ -1,0 +1,2 @@
+defect_id,scenario_id,sequence,severity,found_at,found_by,role,physical_actor_id,effective_actor_id,chat_id,input_message,expected_result,actual_result,evidence_links,run_id,trace_id,reproducibility,status,notes
+PL-FEISHU-001,feishu-requirement-change-001,1,P2,,,,,,,,,,,,,,,new,

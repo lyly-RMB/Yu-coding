@@ -42,8 +42,14 @@ from project_lens.application.knowledge_operations import (
     KnowledgeOperationsService,
 )
 from project_lens.application.knowledge_gap_service import KnowledgeGapService
+from project_lens.application.knowledge_gap_recheck import HermesKnowledgeGapVerifier, KnowledgeGapRecheckService
+from project_lens.integrations.feishu.long_connection import FeishuLongConnection
 from project_lens.application.knowledge_gap_store import SQLiteKnowledgeGapStore
 from project_lens.application.knowledge_gap_digest import KnowledgeGapDigestService
+from project_lens.application.knowledge_gap_digest_runner import (
+    DigestRecipients,
+    KnowledgeGapDigestRunner,
+)
 from project_lens.application.obsidian_inbox_service import (
     ObsidianInboxService,
     SQLiteKnowledgeProposalStore,
@@ -130,6 +136,8 @@ from project_lens.integrations.feishu.http_adapter import (
     HttpFeishuMessenger,
 )
 from project_lens.integrations.feishu.hermes_tool_loop import FeishuHermesToolLoopBridge
+from project_lens.integrations.feishu.virtual_members import VirtualMemberController
+from project_lens.integrations.feishu.virtual_members import VirtualMemberController
 from project_lens.integrations.hermes_plugin.config import ProjectLensPluginConfig
 from project_lens.integrations.feishu.identity import parse_project_bindings
 from project_lens.integrations.feishu.messages_client import FeishuMessagesClient
@@ -162,10 +170,20 @@ def create_app(database_path: str = ":memory:") -> FastAPI:
         risk_scheduler: HermesRiskBackgroundScheduler | None = getattr(
             application.state, "hermes_risk_scheduler", None
         )
+        digest_runner: KnowledgeGapDigestRunner | None = getattr(
+            application.state, "knowledge_gap_digest_runner", None
+        )
+        feishu_long_connection: FeishuLongConnection | None = getattr(
+            application.state, "feishu_long_connection", None
+        )
         if scheduler is not None:
             scheduler.start()
         if risk_scheduler is not None:
             risk_scheduler.start()
+        if digest_runner is not None:
+            digest_runner.start()
+        if feishu_long_connection is not None:
+            feishu_long_connection.start()
         try:
             yield
         finally:
@@ -173,6 +191,10 @@ def create_app(database_path: str = ":memory:") -> FastAPI:
                 scheduler.stop()
             if risk_scheduler is not None:
                 risk_scheduler.stop()
+            if digest_runner is not None:
+                digest_runner.stop()
+            if feishu_long_connection is not None:
+                feishu_long_connection.stop()
 
     application = FastAPI(
         title="ProjectLens API",
@@ -242,7 +264,8 @@ def create_app(database_path: str = ":memory:") -> FastAPI:
     application.state.evidence_index = evidence_index
     knowledge_gap_store = SQLiteKnowledgeGapStore(database)
     application.state.knowledge_gap_store = knowledge_gap_store
-    application.state.knowledge_gap_service = KnowledgeGapService(knowledge_gap_store)
+    knowledge_gap_service = KnowledgeGapService(knowledge_gap_store)
+    application.state.knowledge_gap_service = knowledge_gap_service
     application.state.knowledge_gap_digest_service = KnowledgeGapDigestService(
         knowledge_gap_store, knowledge_gap_store
     )
@@ -431,10 +454,18 @@ def create_app(database_path: str = ":memory:") -> FastAPI:
         genai_trace_service=genai_trace_service,
         tool_catalog_provider=project_agent_tool_service,
     )
+    knowledge_gap_recheck_service = KnowledgeGapRecheckService(
+        knowledge_gap_service,
+        HermesKnowledgeGapVerifier(hermes_runtime_service),
+    )
+    application.state.knowledge_gap_recheck_service = knowledge_gap_recheck_service
     project_agent_ask_service = ProjectAgentAskService(
         hermes_runtime=hermes_runtime_service,
         project_registry=project_registry,
         runtime_context_resolver=runtime_context_resolver,
+        knowledge_gap_service=knowledge_gap_service,
+        knowledge_gap_digest_service=application.state.knowledge_gap_digest_service,
+        feishu_messenger=None,
     )
     project_agent_role_view_service = ProjectAgentRoleViewService(
         run_service=run_service,
@@ -509,6 +540,10 @@ def create_app(database_path: str = ":memory:") -> FastAPI:
     )
     application.state.feishu_binding_count = identity_mapper.binding_count
     application.state.feishu_messenger = messenger
+    project_agent_ask_service.configure_gap_delivery(
+        digest_service=application.state.knowledge_gap_digest_service,
+        messenger=messenger,
+    )
     application.state.project_connector_factory = ProjectConnectorFactory(
         project_registry=project_registry,
         feishu_token_provider=token_provider,
@@ -588,7 +623,50 @@ def create_app(database_path: str = ":memory:") -> FastAPI:
         index=evidence_index,
         status_store=sync_status_store,
         source_store=source_record_store,
+        knowledge_gap_service=knowledge_gap_service,
     )
+    def _resolve_digest_context(project, period_start, period_end):
+        registration = next(
+            (item for item in project_registrations if item.project == project),
+            None,
+        )
+        access_scope = registration.access_scope if registration is not None else ""
+        permissions = frozenset({access_scope}) if access_scope else frozenset()
+        evidence = context_engine.authorized_evidence(
+            project,
+            AccessContext(
+                tenant_id=project.tenant_id,
+                user_id="knowledge-gap-digest",
+                permissions=permissions,
+            ),
+            limit=50,
+        )
+        space = project_registry.get(project.tenant_id, project.project_id)
+        owner_ids = frozenset(member.actor_id for member in (space.members if space else ()))
+        owner_open_ids = {
+            owner_id: open_id
+            for owner_id in owner_ids
+            if (open_id := identity_mapper.owner_open_id(project, owner_id))
+        }
+        return (
+            frozenset(item.id for item in evidence),
+            owner_ids,
+            DigestRecipients(
+                project_chat_id=identity_mapper.project_chat_id(project) or "",
+                owner_open_ids=owner_open_ids,
+            ),
+        )
+
+    knowledge_gap_digest_runner = KnowledgeGapDigestRunner(
+        service=application.state.knowledge_gap_digest_service,
+        projects=tuple(item.project for item in project_registrations),
+        resolve_context=_resolve_digest_context,
+        sender=messenger,
+        timezone_name=settings.feishu_knowledge_gap_digest_timezone,
+        enabled=settings.feishu_knowledge_gap_digest_enabled,
+        interval_seconds=settings.feishu_knowledge_gap_digest_interval_seconds,
+    )
+    application.state.knowledge_gap_digest_runner = knowledge_gap_digest_runner
     application.state.feishu_doc_sync_service = sync_service
     attach_scheduler_to_app(
         application,
@@ -639,6 +717,30 @@ def create_app(database_path: str = ":memory:") -> FastAPI:
         risk_feedback_service=risk_feedback_service,
         risk_engine=risk_engine,
         risk_notification_service=risk_notification_service,
+        knowledge_gap_service=knowledge_gap_service,
+        knowledge_gap_recheck_service=knowledge_gap_recheck_service,
+        virtual_members=VirtualMemberController(
+            enabled=settings.feishu_virtual_members_enabled and settings.env.lower() != "production",
+            operators=settings.feishu_virtual_member_operators,
+            profiles=settings.feishu_virtual_member_profiles,
+        ),
+        # Pytest isolation keeps preview on so regressions stay stable; local
+        # .env can still disable it for the live uvicorn process.
+        context_preview_enabled=(
+            True if isolation_active() else settings.feishu_context_preview_enabled
+        ),
+    )
+    application.state.feishu_long_connection = FeishuLongConnection(
+        app_id=settings.feishu_app_id or "",
+        app_secret=settings.feishu_app_secret or "",
+        event_service=application.state.feishu_event_service,
+        # Never open a live Feishu WS under pytest — credentials in local .env
+        # would otherwise redeliver group events and double-post cards/replies.
+        enabled=(
+            not isolation_active()
+            and settings.feishu_app_id is not None
+            and settings.feishu_app_secret is not None
+        ),
     )
     application.include_router(router, prefix=settings.api_prefix)
     application.include_router(project_agent_router, prefix=settings.api_prefix)

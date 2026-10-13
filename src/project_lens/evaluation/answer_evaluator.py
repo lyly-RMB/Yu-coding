@@ -67,11 +67,7 @@ def evaluate_answer_citations(
         if any(item not in allowed and item not in expected for item in citations):
             case_failures.append("citation_outside_expected_or_retrieved_scope")
 
-        for claim in answer.get("claims", ()):
-            evidence_ids = set(str(item) for item in claim.get("evidence_ids", ()))
-            if str(claim.get("type", "fact")).casefold() == "fact" and not evidence_ids:
-                unsupported_claims += 1
-                case_failures.append("unsupported_fact_claim")
+        # Uncited FACT claims are allowed; do not inflate unsupported_claim_rate.
         abstained = bool(answer.get("abstained", False))
         if case.expected_abstention and abstained:
             abstention_true_positive += 1

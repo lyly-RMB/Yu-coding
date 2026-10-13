@@ -11,7 +11,6 @@ from project_lens.domain.conversation import (
     CitationSourceKind,
     DateWindow,
     PendingItemMark,
-    list_group_message_candidates_stub,
     pending_item_from_default,
 )
 from project_lens.domain.models import ProjectRef
@@ -125,6 +124,104 @@ def test_edit_card_wires_confirm_before_preview() -> None:
     assert "未点确定前不生效" in body
 
 
+def test_edit_card_shows_summary_and_recent_turn_details() -> None:
+    summary = type(
+        "Item",
+        (),
+        {
+            "mark": "default",
+            "source_kind": "summary",
+            "occurred_at": None,
+            "label": "最近压缩（3轮）",
+            "item_id": "summary:latest",
+            "user_question": "发布影响？\n支付超时如何排查？",
+            "answer_summary": "涉及支付和订单服务；优先检查连接池。",
+        },
+    )()
+    recent = type(
+        "Item",
+        (),
+        {
+            "mark": "default",
+            "source_kind": "recent_turn",
+            "occurred_at": None,
+            "label": "支付超时问题排查",
+            "item_id": "turn:recent",
+            "user_question": "支付超时可能是什么原因？",
+            "answer_summary": "检查连接池、网关和重试策略。",
+        },
+    )()
+    card = render_context_edit_card(
+        question="下一步怎么处理？",
+        session_id=uuid4(),
+        items=(summary, recent),
+        token_estimate=42,
+    )
+    body = str(card)
+    assert "会话摘要" in body
+    assert "覆盖 2 轮" in body
+    assert "最近对话" in body
+    assert "用户：支付超时可能是什么原因？" in body
+    assert "助手：检查连接池、网关和重试策略。" in body
+
+
+def test_more_history_card_shows_question_and_answer_summary() -> None:
+    candidate = type(
+        "Candidate",
+        (),
+        {
+            "occurred_at": None,
+            "short_title": "支付超时问题排查",
+            "source_kind": "turn",
+            "already_in_pending": False,
+            "citation_id": "citation-1",
+            "user_question": "支付超时可能是什么原因？",
+            "answer_summary": "检查连接池、网关和重试策略。",
+        },
+    )()
+    card = render_context_more_history_card(
+        question="下一步怎么处理？",
+        session_id=uuid4(),
+        candidates=(candidate,),
+        token_estimate=42,
+        offset=0,
+        total=1,
+    )
+    body = str(card)
+    assert "用户：支付超时可能是什么原因？" in body
+    assert "助手：检查连接池、网关和重试策略。" in body
+
+
+def test_history_candidates_include_compressed_turn_details() -> None:
+    service = ConversationService()
+    session = _seed_turns(service, count=1, chat_id="chat-compressed-history")
+    turn = session.recent_turns[0]
+    record = session.summary.compressed_turn_records[0] if session.summary.compressed_turn_records else None
+    if record is None:
+        from project_lens.domain.conversation import CompressedTurnRecord
+
+        record = CompressedTurnRecord(
+            user_question="历史中的支付超时问题？",
+            answer_summary="检查连接池和重试策略。",
+            run_id=turn.run_id,
+            occurred_at=turn.created_at,
+        )
+        session = session.model_copy(
+            update={
+                "recent_turns": (),
+                "summary": session.summary.model_copy(
+                    update={"compressed_turn_records": (record,)}
+                ),
+            }
+        )
+        service.store.upsert(session)
+    candidates, total = service.list_history_candidates(session)
+    assert total >= 1
+    candidate = next(item for item in candidates if item.run_id == turn.run_id)
+    assert candidate.user_question == "历史中的支付超时问题？"
+    assert candidate.answer_summary == "检查连接池和重试策略。"
+
+
 def test_edit_card_selected_exclude_uses_danger_style() -> None:
     item = type(
         "Item",
@@ -194,7 +291,6 @@ def test_more_history_select_lands_in_citation_pending_and_preview() -> None:
     page, total = service.list_history_candidates(session, offset=0, page_size=5)
     assert total >= 3  # 2 turn citations + 1 history
     assert any(c.citation_id == extra.citation_id for c in page)
-    assert list_group_message_candidates_stub(session) == ()
 
     session = service.fine_select_history(session, extra.citation_id)
     assert session.pending_send is not None

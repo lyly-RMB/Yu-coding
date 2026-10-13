@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timezone
 from uuid import uuid4
 
 import pytest
 
 from project_lens.application.knowledge_gap_service import KnowledgeGapService
+from project_lens.application.knowledge_gap_recheck import (
+    KnowledgeGapRecheckService, RecheckEvidence, RecheckVerification,
+)
 from project_lens.application.knowledge_gap_store import InMemoryKnowledgeGapStore, SQLiteKnowledgeGapStore
 from project_lens.application.knowledge_gap_digest import (
     KnowledgeGapDigestService,
@@ -23,6 +27,10 @@ from project_lens.domain.knowledge_gap import (
 )
 from project_lens.domain.models import ProjectRef
 from project_lens.persistence.sqlite import SQLiteDatabase
+from project_lens.domain.identity import ActorContext
+from project_lens.project_space.policies import (
+    AnswerDepth, EffectiveAccessScope, RoleKind, VisibilityLevel,
+)
 
 
 NOW = datetime(2026, 9, 23, 9, tzinfo=timezone.utc)
@@ -79,6 +87,78 @@ def test_repeated_observations_aggregate_and_never_lower_severity() -> None:
     assert len(store.observations_for_gap(updated.id)) == 2
 
 
+def test_source_revision_enqueues_open_gap_once_and_dispatch_requires_current_actor_scope() -> None:
+    from project_lens.application.knowledge_gap_recheck import KnowledgeGapRecheckService
+
+    store = InMemoryKnowledgeGapStore()
+    gaps = KnowledgeGapService(store)
+    proposed = candidate().model_copy(update={"source_refs": ("feishu_doc:doc-42",)})
+    case = observe(gaps, proposed)
+    case = gaps.transition(case.id, KnowledgeGapStatus.OPEN, actor_id="reviewer", reason="confirmed", now=NOW)
+    jobs = gaps.enqueue_source_rechecks(
+        project=PROJECT, source_ref="feishu_doc:doc-42", revision="r2", now=NOW,
+    )
+    assert len(jobs) == 1
+    assert gaps.enqueue_source_rechecks(
+        project=PROJECT, source_ref="feishu_doc:doc-42", revision="r2", now=NOW,
+    ) == ()
+
+    scope = EffectiveAccessScope(
+        actor_id="owner", chat_id="chat", chat_type="group", project=PROJECT,
+        role=RoleKind.MANAGER, readable_sources=(), forbidden_sources=(),
+        allowed_tools=("search_context",), answer_depth=AnswerDepth.BALANCED,
+        answer_style="team", visibility_level=VisibilityLevel.TEAM_SHARED,
+    )
+    actor = ActorContext(
+        tenant_key="tenant", actor_id="owner", chat_id="chat", chat_type="group",
+        source="test_fixture", authenticated=True,
+    )
+
+    class Verifier:
+        async def verify(self, **kwargs):
+            raise AssertionError("open gaps must await an explicit recheck request")
+
+    result = asyncio.run(KnowledgeGapRecheckService(gaps, Verifier()).dispatch_source_jobs(
+        project=PROJECT, actor=actor, scope=scope, now=NOW,
+    ))
+    assert result == ()
+    assert gaps.list_recheck_jobs(PROJECT)[0].status == "pending"
+
+
+def test_source_revision_recheck_job_failure_is_retryable() -> None:
+    store = InMemoryKnowledgeGapStore()
+    gaps = KnowledgeGapService(store)
+    proposed = candidate().model_copy(update={"source_refs": ("feishu_doc:doc-42",)})
+    case = observe(gaps, proposed)
+    case = gaps.transition(case.id, KnowledgeGapStatus.OPEN, actor_id="reviewer", reason="confirmed", now=NOW)
+    case = gaps.transition(case.id, KnowledgeGapStatus.ACKNOWLEDGED, actor_id="owner", reason="seen", now=NOW)
+    case = gaps.transition(case.id, KnowledgeGapStatus.ASSIGNED, actor_id="lead", reason="assigned", now=NOW)
+    gaps.transition(case.id, KnowledgeGapStatus.RESOLVED_PENDING_CHECK, actor_id="owner", reason="source added", now=NOW)
+    gaps.enqueue_source_rechecks(project=PROJECT, source_ref="feishu_doc:doc-42", revision="r3", now=NOW)
+    scope = EffectiveAccessScope(
+        actor_id="owner", chat_id="chat", chat_type="group", project=PROJECT,
+        role=RoleKind.MANAGER, readable_sources=(), forbidden_sources=(),
+        allowed_tools=("search_context",), answer_depth=AnswerDepth.BALANCED,
+        answer_style="team", visibility_level=VisibilityLevel.TEAM_SHARED,
+    )
+    actor = ActorContext(
+        tenant_key="tenant", actor_id="owner", chat_id="chat", chat_type="group",
+        source="test_fixture", authenticated=True,
+    )
+
+    class Verifier:
+        async def verify(self, **kwargs):
+            raise RuntimeError("temporary retrieval failure")
+
+    asyncio.run(KnowledgeGapRecheckService(gaps, Verifier()).dispatch_source_jobs(
+        project=PROJECT, actor=actor, scope=scope, now=NOW,
+    ))
+    retryable = gaps.list_recheck_jobs(PROJECT)
+    assert len(retryable) == 1
+    assert retryable[0].status == "failed"
+    assert retryable[0].attempts == 1
+
+
 def test_authorization_is_checked_and_non_governance_candidates_are_not_persisted() -> None:
     store = InMemoryKnowledgeGapStore()
     service = KnowledgeGapService(store)
@@ -128,6 +208,112 @@ def test_sqlite_roundtrip_and_project_isolation(tmp_path) -> None:
     assert updated.status == KnowledgeGapStatus.OPEN
     assert len(store.observations_for_gap(case.id)) == 1
     assert len(store.events_for_gap(case.id)) == 1
+    assert store.rechecks_for_gap(case.id) == ()
+
+
+class _Verifier:
+    def __init__(self, result=None, error: Exception | None = None) -> None:
+        self.result = result
+        self.error = error
+        self.calls = []
+
+    async def verify(self, *, question, project, actor, scope):
+        self.calls.append((question, project, actor.actor_id, scope))
+        if self.error:
+            raise self.error
+        return self.result
+
+
+def _pending_case(service):
+    case = observe(service, candidate())
+    case = service.transition(case.id, KnowledgeGapStatus.OPEN, actor_id="reviewer", reason="confirmed", now=NOW)
+    case = service.transition(case.id, KnowledgeGapStatus.ACKNOWLEDGED, actor_id="owner", reason="seen", now=NOW)
+    case = service.transition(case.id, KnowledgeGapStatus.ASSIGNED, actor_id="lead", reason="assigned", now=NOW)
+    return service.transition(case.id, KnowledgeGapStatus.RESOLVED_PENDING_CHECK, actor_id="owner", reason="source added", now=NOW)
+
+
+def _recheck_identity(actor_id="current-owner"):
+    actor = ActorContext(
+        tenant_key=PROJECT.tenant_id,
+        actor_id=actor_id,
+        chat_id="chat-1",
+        chat_type="group",
+        source="feishu_event",
+        authenticated=True,
+    )
+    scope = EffectiveAccessScope(
+        project=PROJECT,
+        actor_id=actor_id,
+        chat_id="chat-1",
+        role=RoleKind.MANAGER,
+        readable_sources=(),
+        allowed_tools=("search_context",),
+        forbidden_sources=(),
+        answer_depth=AnswerDepth.BALANCED,
+        answer_style="team",
+        visibility_level=VisibilityLevel.TEAM_SHARED,
+        identity_source="feishu_event",
+        chat_type="group",
+    )
+    return actor, scope
+
+
+@pytest.mark.asyncio
+async def test_recheck_resolves_only_with_complete_currently_scoped_evidence() -> None:
+    service = KnowledgeGapService(InMemoryKnowledgeGapStore())
+    case = _pending_case(service)
+    evidence_id = uuid4()
+    verifier = _Verifier(RecheckVerification(answered=True, complete=True, evidence=(RecheckEvidence(evidence_id),)))
+    actor, scope = _recheck_identity()
+    result = await KnowledgeGapRecheckService(service, verifier).recheck(
+        case.id, actor=actor, scope=scope, authorized_project=PROJECT, trigger="manual", now=NOW.replace(hour=11)
+    )
+    assert result.case.status == KnowledgeGapStatus.RESOLVED
+    assert result.audit.evidence_ids == (evidence_id,)
+    assert result.audit.old_status == KnowledgeGapStatus.RESOLVED_PENDING_CHECK
+    assert verifier.calls == [(case.question, PROJECT, actor.actor_id, scope)]
+    assert service.rechecks_for_gap(case.id) == (result.audit,)
+
+
+@pytest.mark.asyncio
+async def test_recheck_audit_persists_in_sqlite(tmp_path) -> None:
+    store = SQLiteKnowledgeGapStore(SQLiteDatabase(str(tmp_path / "recheck.db")))
+    service = KnowledgeGapService(store)
+    case = _pending_case(service)
+    actor, scope = _recheck_identity("owner")
+    result = await KnowledgeGapRecheckService(
+        service,
+        _Verifier(RecheckVerification(answered=True, complete=True, evidence=(RecheckEvidence(uuid4()),))),
+    ).recheck(case.id, actor=actor, scope=scope, authorized_project=PROJECT, trigger="manual", now=NOW)
+    assert store.rechecks_for_gap(case.id) == (result.audit,)
+
+
+@pytest.mark.asyncio
+async def test_recheck_stays_pending_on_insufficient_evidence_or_verifier_failure() -> None:
+    for verifier in (_Verifier(RecheckVerification(answered=True, complete=True)), _Verifier(error=RuntimeError("unavailable"))):
+        service = KnowledgeGapService(InMemoryKnowledgeGapStore())
+        case = _pending_case(service)
+        actor, scope = _recheck_identity("owner")
+        result = await KnowledgeGapRecheckService(service, verifier).recheck(
+            case.id, actor=actor, scope=scope, authorized_project=PROJECT, trigger="source_update", now=NOW
+        )
+        assert result.case.status == KnowledgeGapStatus.RESOLVED_PENDING_CHECK
+        assert result.audit.outcome in {"still_blocked", "verification_failed"}
+
+
+@pytest.mark.asyncio
+async def test_recheck_reopens_resolved_case_on_conflict_and_enforces_project_scope() -> None:
+    service = KnowledgeGapService(InMemoryKnowledgeGapStore())
+    case = _pending_case(service)
+    resolved = service.transition(case.id, KnowledgeGapStatus.RESOLVED, actor_id="reviewer", reason="verified", now=NOW)
+    verifier = _Verifier(RecheckVerification(answered=True, complete=False, conflict=True))
+    rechecks = KnowledgeGapRecheckService(service, verifier)
+    actor, scope = _recheck_identity("reviewer")
+    with pytest.raises(KeyError, match="not found"):
+        await rechecks.recheck(resolved.id, actor=actor, scope=scope, authorized_project=ProjectRef(tenant_id="tenant", project_id="other"), trigger="manual")
+    reopened = await rechecks.recheck(resolved.id, actor=actor, scope=scope, authorized_project=PROJECT, trigger="source_update", now=NOW.replace(hour=12))
+    assert reopened.case.status == KnowledgeGapStatus.REOPENED
+    assert reopened.audit.outcome == "conflict_found"
 
 
 def test_existing_knowledge_gap_report_is_persisted_only_with_authorized_evidence() -> None:
@@ -339,6 +525,9 @@ def test_gap_actions_are_persisted_and_can_complete() -> None:
     assert case is not None
     action = service.propose_action(case.id, action_type=GapActionType.ADD_SOURCE, proposed_by="owner", description="Attach QA acceptance record", target_owner_id="qa-owner", now=NOW)
     assert store.actions_for_gap(case.id) == (action,)
+    service.update_action(action.id, GapActionStatus.ACCEPTED, now=NOW)
     completed = service.update_action(action.id, GapActionStatus.COMPLETED, now=NOW)
     assert completed.status == GapActionStatus.COMPLETED
     assert completed.completed_at == NOW
+    with pytest.raises(ValueError, match="invalid gap-action transition"):
+        service.update_action(action.id, GapActionStatus.REJECTED, now=NOW)

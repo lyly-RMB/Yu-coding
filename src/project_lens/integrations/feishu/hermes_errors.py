@@ -57,8 +57,8 @@ _HINTS: dict[str, str] = {
     HERMES_INVALID_RESULT: "定位：Hermes 返回了非 dict 结果，查 AIAgent.run_conversation 输出。",
     HERMES_NO_EVIDENCE: "定位：工具循环结束但无 citation-ready Evidence，查 projectlens_* 工具调用与权限。",
     HERMES_PARSE_FAILED: "定位：Hermes 终稿无法解析为 AnswerDraft，查 final_response / repair 路径。",
-    HERMES_VERIFY_DEMOTED: "定位：有草稿但 Evidence 引用校验未通过，查 verifier / citations。",
-    HERMES_INSUFFICIENT_EVIDENCE: "定位：资料不足，查索引同步与检索权限，非模型崩溃。",
+    HERMES_VERIFY_DEMOTED: "定位：回答为空或仅有系统兜底文案，查 Hermes 是否返回正文。",
+    HERMES_INSUFFICIENT_EVIDENCE: "定位：没有可展示结论，查检索结果与工具调用，非模型崩溃。",
     PROJECTLENS_RUNTIME: "定位：HermesRuntimeService.execute_prepared 异常，查 bridge / complete_external。",
     FEISHU_DELIVERY_FAILED: "定位：回答已生成但飞书 post_text/post_card 失败，查 tenant token 与 IM API。",
     PROJECTLENS_UNEXPECTED: "定位：飞书后台任务未捕获的外层异常，查 service 日志栈。",
@@ -155,7 +155,7 @@ def parse_hermes_error(raw: str) -> HermesErrorInfo | None:
 
 
 def classify_degraded_answer(answer: Any) -> HermesErrorInfo:
-    """Soft success path: COMPLETED run but not a Hermes-verified conclusion."""
+    """Soft success path: COMPLETED run but empty / parse-failure fallback body."""
 
     from project_lens.integrations.feishu.views import (
         _DEGRADED_SUMMARY_MARKERS,
@@ -178,19 +178,13 @@ def classify_degraded_answer(answer: Any) -> HermesErrorInfo:
             STAGE_PARSE,
             "Hermes 未返回最终答案。",
         )
-    if "尚未完成 Evidence 引用校验" in unknowns_blob:
-        return HermesErrorInfo(
-            HERMES_VERIFY_DEMOTED,
-            STAGE_VERIFY,
-            "尚未完成 Evidence 引用校验。",
-        )
     if is_evidence_insufficient(answer) or any(
         marker in summary for marker in _DEGRADED_SUMMARY_MARKERS
     ):
         return HermesErrorInfo(
             HERMES_INSUFFICIENT_EVIDENCE,
             STAGE_EVIDENCE,
-            "当前资料不足以形成带引用结论。",
+            "当前没有可展示的结论正文。",
         )
     if any(marker in unknowns_blob for marker in _DEGRADED_UNKNOWN_MARKERS):
         return HermesErrorInfo(
@@ -201,7 +195,7 @@ def classify_degraded_answer(answer: Any) -> HermesErrorInfo:
     return HermesErrorInfo(
         HERMES_VERIFY_DEMOTED,
         STAGE_VERIFY,
-        "没有通过引用校验的可展示结论，或当前资料不足。",
+        "没有可展示的结论正文。",
     )
 
 

@@ -77,13 +77,6 @@ _CODE_TERMS = (
     "method",
     "explain",
 )
-_SKILL_LABELS = {
-    ProjectSkill.ARCHITECTURE: "架构理解",
-    ProjectSkill.VERSION_CHANGE: "版本变更",
-    ProjectSkill.CODE_EXPLANATION: "代码解释",
-    ProjectSkill.INCIDENT_DIAGNOSIS: "故障诊断",
-    ProjectSkill.PROJECT_KNOWLEDGE: "项目知识",
-}
 _OWNER_LOOKUP_TERMS = (
     "负责人是谁",
     "谁负责",
@@ -142,12 +135,3 @@ def classify_project_question(question: str) -> ProjectSkill:
     if any(term in normalized for term in _CODE_TERMS):
         return ProjectSkill.CODE_EXPLANATION
     return ProjectSkill.PROJECT_KNOWLEDGE
-
-
-def project_skill_label(skill: ProjectSkill | str) -> str:
-    """Return the user-facing label while accepting stored string values."""
-    try:
-        normalized = ProjectSkill(skill)
-    except ValueError:
-        return str(skill)
-    return _SKILL_LABELS[normalized]

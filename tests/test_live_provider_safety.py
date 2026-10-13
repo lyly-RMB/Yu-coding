@@ -49,11 +49,10 @@ async def test_live_true_without_api_key_does_not_network() -> None:
 async def test_live_true_with_mock_transport_uses_context_prompt_only() -> None:
     prompt = render_context_prompt(_pack())
     payload = {
-        "business_summary": "给业务看：下单可能受 coupon 为空影响。",
-        "technical_summary": "技术：optional coupon 未做空判断。",
-        "product_summary": "产品摘要：下单失败风险。",
+        "answer_text": "产品：下单可能受 coupon 为空影响。\n研发：optional coupon 未做空判断。\n测试：边界覆盖待确认。",
+        "facts": [],
+        "unknowns": [],
         "hypotheses": [],
-        "claim_drafts": [],
         "allow_apply": False,
     }
     transport = RecordingChatTransport(

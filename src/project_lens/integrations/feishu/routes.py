@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
+from fastapi.responses import JSONResponse
 
 from project_lens.integrations.feishu.service import FeishuEventService
 
@@ -19,15 +20,18 @@ def get_feishu_service(request: Request) -> FeishuEventService:
 @router.post("/feishu/events", tags=["feishu"])
 async def receive_feishu_event(
     request: Request,
-    background_tasks: BackgroundTasks,
     service: FeishuEventService = Depends(get_feishu_service),
-) -> dict:
+) -> JSONResponse:
     body = await request.body()
     logger.info(
         "feishu callback received bytes=%d has_signature=%s",
         len(body),
         bool(request.headers.get("X-Lark-Signature")),
     )
+    # Local BackgroundTasks attached to the response (not injected + awaited).
+    # Returning immediately keeps the webhook / health path responsive while
+    # Hermes runs after the HTTP response is sent.
+    background_tasks = BackgroundTasks()
     result = service.handle_callback(
         body=body,
         timestamp=request.headers.get("X-Lark-Request-Timestamp"),
@@ -35,4 +39,4 @@ async def receive_feishu_event(
         signature=request.headers.get("X-Lark-Signature"),
         background_tasks=background_tasks,
     )
-    return result.to_response()
+    return JSONResponse(content=result.to_response(), background=background_tasks)

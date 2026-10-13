@@ -95,6 +95,16 @@ class KnowledgeGapDigestService:
         self._gap_store = gap_store
         self._run_store = run_store
 
+    def get_run(self, digest: DailyKnowledgeGapDigest) -> KnowledgeGapDigestRun | None:
+        return self._run_store.get_digest_run(_digest_key(digest.project, digest.period_start, digest.period_end))
+
+    def claim_notification(self, notification_key: str, *, gap_id: UUID, project: ProjectRef, recipient_id: str, event_type: str, period_key: str, at: datetime) -> bool:
+        return self._gap_store.claim_digest_notification(
+            notification_key, gap_id=gap_id, project=project,
+            recipient_id=recipient_id, event_type=event_type,
+            period_key=period_key, at=_utc(at),
+        )
+
     def build_bundle(
         self,
         project: ProjectRef,
@@ -226,6 +236,7 @@ def render_knowledge_gap_digest(digest: DailyKnowledgeGapDigest) -> dict[str, ob
         f"周期：{digest.period_start.isoformat()} 至 {digest.period_end.isoformat()}",
         f"新增：{len(digest.new_cases)} | 持续未解决：{len(digest.ongoing_cases)} | 高影响：{len(digest.high_impact_cases)} | 重新打开：{len(digest.reopened_cases)} | 已关闭：{len(digest.resolved_cases)}",
     ]
+    all_items = []
     for label, items in (
         ("新增", digest.new_cases),
         ("持续未解决", digest.ongoing_cases),
@@ -237,13 +248,25 @@ def render_knowledge_gap_digest(digest: DailyKnowledgeGapDigest) -> dict[str, ob
             continue
         lines.extend(("", f"{label}："))
         for item in items[:20]:
+            all_items.append(item)
             owner = f"；建议负责人：{', '.join(item.suggested_owner_ids)}" if item.suggested_owner_ids else ""
             impact = f"；影响：{item.impact}" if item.impact else ""
             lines.append(f"- [{item.severity.value}] {item.title}（出现 {item.occurrence_count} 次）{impact}{owner}")
+    elements: list[dict[str, object]] = [{"tag": "markdown", "content": "\n".join(lines)}]
+    for item in all_items[:10]:
+        elements.append({
+            "tag": "action",
+            "actions": [
+                {"tag": "button", "text": {"tag": "plain_text", "content": "认领"}, "type": "primary", "value": {"action": "knowledge_gap_accept", "gap_id": str(item.gap_id)}},
+                {"tag": "button", "text": {"tag": "plain_text", "content": "请求复查"}, "value": {"action": "knowledge_gap_recheck", "gap_id": str(item.gap_id)}},
+                {"tag": "button", "text": {"tag": "plain_text", "content": "暂缓"}, "value": {"action": "knowledge_gap_snooze", "gap_id": str(item.gap_id)}},
+                {"tag": "button", "text": {"tag": "plain_text", "content": "误报"}, "value": {"action": "knowledge_gap_dismiss", "gap_id": str(item.gap_id)}},
+            ],
+        })
     return {
         "config": {"wide_screen_mode": True},
         "header": {"template": "orange", "title": {"tag": "plain_text", "content": "ProjectLens 每日知识缺口摘要"}},
-        "elements": [{"tag": "markdown", "content": "\n".join(lines)}],
+        "elements": elements,
     }
 
 

@@ -35,7 +35,7 @@ feishu-ws = [
 project-lens-mcp = "project_lens.integrations.mcp.server:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/project_lens", "src/insight_project"]
+packages = ["src/project_lens"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

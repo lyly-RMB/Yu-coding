@@ -16,6 +16,8 @@ def infer_memory_type(claim_text: str, *, skill: str | None = None) -> MemoryTyp
     """Heuristic memory taxonomy for proposal routing; never writes memory by itself."""
 
     normalized = claim_text.casefold()
+    if any(term in normalized for term in ("需求变更", "需求变化", "改为", "requirement change")):
+        return MemoryType.REQUIREMENT_CHANGE
     if any(term in normalized for term in ("负责人", "owner", "谁负责")):
         return MemoryType.OWNER
     if any(term in normalized for term in ("复盘", "postmortem", "事后总结")):
@@ -48,16 +50,25 @@ def propose_memory_from_answer(
 ) -> MemoryProposal | None:
     """Return a pending proposal for the first evidence-backed FACT claim, if any."""
 
-    fact = next(
-        (
-            claim
-            for claim in answer.claims
-            if claim.type == ClaimType.FACT and claim.evidence_ids
-        ),
-        None,
-    )
-    if fact is None:
+    candidates = [
+        claim for claim in answer.claims
+        if claim.type == ClaimType.FACT and claim.evidence_ids
+    ]
+    if not candidates:
         return None
+    question_text = " ".join(
+        (answer.answer_text, answer.business_summary, answer.conclusion, answer.technical_summary)
+    ).casefold()
+    # Prefer a claim that matches the answer topic over generic project metadata
+    # such as "core service is ..." which otherwise becomes architecture_fact.
+    topical_terms = ("需求", "变更", "改为", "影响", "重试", "requirement", "change")
+    fact = max(
+        candidates,
+        key=lambda claim: (
+            sum(term in claim.text.casefold() for term in topical_terms if term in question_text or term in claim.text.casefold()),
+            len(claim.evidence_ids),
+        ),
+    )
     # Hermes may emit a long answer_markdown as one FACT; MemoryProposal caps at 2k.
     claim_text = fact.text.strip()[:2_000]
     if not claim_text:
@@ -155,7 +166,6 @@ def consolidate_episodes(
         if not text or _is_placeholder_episode_text(text):
             skipped["placeholder"] += 1
             continue
-        memory_type = infer_memory_type(text)
         key = (episode.project.tenant_id, episode.project.project_id)
         group = grouped.setdefault(key, [])
         normalized = _proposal_normalize(text)

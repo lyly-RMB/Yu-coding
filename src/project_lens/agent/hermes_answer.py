@@ -7,7 +7,11 @@ from datetime import datetime, timezone
 from hashlib import sha256
 from uuid import UUID
 
-from project_lens.agent.draft import AnswerDraft, DraftFact, resolve_citation_id
+from project_lens.agent.draft import (
+    AnswerDraft,
+    DraftFact,
+    resolve_citation_id,
+)
 from project_lens.agent.read_tools import InvestigationLedger
 from project_lens.agent.verifier import verify_answer_draft
 from project_lens.domain.models import Evidence, EvidenceType, ProjectAnswer, ProjectRef, SourceRef
@@ -25,7 +29,7 @@ _SEARCH_TOOL_MARKERS = ("search_context",)
 
 
 def project_answer_from_hermes(
-    *, project: ProjectRef, draft: AnswerDraft, tool_calls: tuple[object, ...]
+    *, project: ProjectRef, draft: AnswerDraft, tool_calls: tuple[object, ...], answer_text: str = ""
 ) -> ProjectAnswer:
     """Verify Hermes citations using bounded citation metadata from tool results."""
     ledger = InvestigationLedger()
@@ -55,7 +59,12 @@ def project_answer_from_hermes(
         preferred_ids=search_ids or ledger_ids,
         tool_names=list(ledger.tool_names),
     )
-    answer = verify_answer_draft(enriched, project=project, ledger=ledger)
+    answer = verify_answer_draft(
+        enriched,
+        project=project,
+        ledger=ledger,
+        answer_text=answer_text,
+    )
     return answer.model_copy(
         update={"skill": "project_investigation", "policy_used": "hermes-citation-ledger-v1"}
     )
@@ -68,37 +77,43 @@ def _enrich_draft_citations(
     preferred_ids: list[UUID],
     tool_names: list[str],
 ) -> AnswerDraft:
-    """Fill missing structured citations from prose refs and the tool evidence ledger.
-
-    Hermes often emits a long ``answer_markdown`` while leaving ``citations`` empty.
-    Without this step the verifier demotes the whole answer and Feishu marks it degraded.
-    """
+    """Resolve citations on structured facts without converting prose into evidence."""
 
     if not draft.facts and not ledger_ids:
         return draft
     evidence_set = set(ledger_ids)
     id_order = preferred_ids or ledger_ids
+    source_facts = list(draft.facts)
+    unknowns = list(draft.unknowns)
     new_facts: list[DraftFact] = []
-    for fact in draft.facts:
+    for fact in source_facts:
         merged = _merge_citation_tokens(
             fact.citations,
             _extract_citation_tokens(fact.text),
             evidence_set=evidence_set,
+            id_order=id_order,
         )
-        # Only auto-attach ledger hits when Hermes omitted structured citations.
-        # Explicit but invalid citation ids still demote (do not silently replace).
+        # Structured facts may use the bounded tool ledger when Hermes omitted
+        # citation tokens; unstructured prose is never promoted into a fact.
         if not merged and not fact.citations and fact.text.strip() and id_order:
             merged = [str(eid) for eid in id_order[:_BACKFILL_CAP]]
         new_facts.append(DraftFact(text=fact.text, citations=merged))
     tools_used = list(draft.tools_used)
     if not tools_used and tool_names:
         tools_used = list(dict.fromkeys(name for name in tool_names if name))
-    return draft.model_copy(update={"facts": new_facts, "tools_used": tools_used})
+    return draft.model_copy(
+        update={
+            "facts": new_facts,
+            "tools_used": tools_used,
+            "unknowns": unknowns,
+        }
+    )
 
 
 def _merge_citation_tokens(
     *groups: list[str],
     evidence_set: set[UUID],
+    id_order: list[UUID],
 ) -> list[str]:
     resolved: list[UUID] = []
     for group in groups:

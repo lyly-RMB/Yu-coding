@@ -111,6 +111,22 @@ def _message_payload(
     }
 
 
+def _confirm_pending_question(client, *, session_id: str, event_id: str, user_id: str = "u_dev"):
+    return client.post(
+        "/api/v1/feishu/events",
+        json={
+            "schema": "2.0",
+            "token": LOCAL_TOKEN,
+            "header": {"event_id": event_id, "event_type": "card.action.trigger", "tenant_key": "demo"},
+            "event": {
+                "operator": {"open_id": user_id},
+                "action": {"tag": "button", "value": {"action": "context_direct_answer", "session_id": session_id}},
+                "context": {"open_chat_id": "chat-1", "chat_type": "group"},
+            },
+        },
+    )
+
+
 def _space_with_developer_and_chat_policy(
     *,
     chat_id: str = "chat-1",
@@ -135,7 +151,7 @@ def _space_with_developer_and_chat_policy(
                 allowed_tools=(
                     "search_context",
                     "read_project_file",
-                    "query_graph",
+                    "authorized_evidence",
                 ),
                 forbidden_sources=("secrets/",),
                 answer_depth=AnswerDepth.DETAILED,
@@ -227,6 +243,9 @@ def test_feishu_status_exposes_agent_mode_for_grey_release() -> None:
     assert "hermes_api_key_configured" in body
     assert "api_key" not in body
     assert "sk-" not in str(body).lower()
+    assert "knowledge_gap_digest_running" in body
+    assert "long_connection_status" in body
+    assert "context_preview_enabled" in body
 
 
 def test_unmapped_feishu_chat_is_rejected() -> None:
@@ -288,7 +307,9 @@ def test_feishu_message_resolves_runtime_context_into_session_and_lifecycle() ->
 
     assert response.status_code == 200
     assert response.json()["status"] == "accepted"
-    run_id = response.json()["run_id"]
+    assert response.json()["pending"] is True
+    assert "run_id" not in response.json()
+    session_id = response.json()["session_id"]
 
     session = app.state.conversation_store.get_by_binding(
         tenant_id=project.tenant_id,
@@ -328,6 +349,10 @@ def test_feishu_message_resolves_runtime_context_into_session_and_lifecycle() ->
         "allow_private_details",
     }
 
+    assert not app.state.lifecycle_bus.of_type(LifecycleEventType.RUN_CREATED)
+    confirmed = _confirm_pending_question(client, session_id=session_id, event_id="runtime-resolve-confirm")
+    assert confirmed.status_code == 200
+    run_id = confirmed.json()["run_id"]
     created = [
         event
         for event in app.state.lifecycle_bus.of_type(LifecycleEventType.RUN_CREATED)
@@ -341,7 +366,7 @@ def test_feishu_message_resolves_runtime_context_into_session_and_lifecycle() ->
     assert runtime["visibility_level"] == "team_shared"
     assert runtime["chat_type"] == "group"
     assert runtime["allowed_tools"] == ["search_context"]
-    assert created[0].payload["entry_mode"] == "natural_project_question"
+    assert created[0].payload["entry_mode"] == "feishu_context_preview_direct"
 
 
 def test_feishu_debug_project_slash_is_marked_and_stripped_before_run() -> None:
@@ -358,16 +383,18 @@ def test_feishu_debug_project_slash_is_marked_and_stripped_before_run() -> None:
     )
 
     assert response.status_code == 200
-    run = app.state.run_service.get(UUID(response.json()["run_id"]))
+    assert response.json()["pending"] is True
+    confirmed = _confirm_pending_question(client, session_id=response.json()["session_id"], event_id="debug-slash-confirm")
+    run = app.state.run_service.get(UUID(confirmed.json()["run_id"]))
     assert run is not None
     assert run.question == "introduce this project"
     created = [
         event
         for event in app.state.lifecycle_bus.of_type(LifecycleEventType.RUN_CREATED)
-        if str(event.run_id) == response.json()["run_id"]
+        if str(event.run_id) == confirmed.json()["run_id"]
     ]
     assert created
-    assert created[0].payload["entry_mode"] == "debug_slash"
+    assert created[0].payload["entry_mode"] == "feishu_context_preview_direct"
 
 
 def test_feishu_natural_project_question_never_falls_back_to_read_agent() -> None:
@@ -387,16 +414,18 @@ def test_feishu_natural_project_question_never_falls_back_to_read_agent() -> Non
     )
 
     assert response.status_code == 200
-    run = app.state.run_service.get(UUID(response.json()["run_id"]))
+    assert response.json()["pending"] is True
+    confirmed = _confirm_pending_question(client, session_id=response.json()["session_id"], event_id="natural-read-agent-confirm")
+    run = app.state.run_service.get(UUID(confirmed.json()["run_id"]))
     assert run is not None
     assert run.runtime == "hermes"
-    assert run.entry_mode == "natural_project_question"
+    assert run.entry_mode == "feishu_context_preview_direct"
     created = [
         event
         for event in app.state.lifecycle_bus.of_type(LifecycleEventType.RUN_CREATED)
-        if str(event.run_id) == response.json()["run_id"]
+        if str(event.run_id) == confirmed.json()["run_id"]
     ]
-    assert created[0].payload["entry_mode"] == "natural_project_question"
+    assert created[0].payload["entry_mode"] == "feishu_context_preview_direct"
 
 
 def test_feishu_natural_project_question_uses_one_real_hermes_run() -> None:
@@ -466,6 +495,10 @@ def test_feishu_natural_project_question_uses_one_real_hermes_run() -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "accepted"
+    assert body["pending"] is True
+    assert not bridge.last_tool_names
+    confirmed = _confirm_pending_question(client, session_id=body["session_id"], event_id="hermes-tool-loop-feishu-confirm")
+    body = confirmed.json()
     assert body["run_id"]
     run = app.state.run_service.get(UUID(body["run_id"]))
     assert run is not None
@@ -522,6 +555,9 @@ def test_feishu_chat_policy_narrows_developer_tools_by_intersection() -> None:
     )
     assert response.status_code == 200
 
+    assert response.json()["pending"] is True
+    confirmed = _confirm_pending_question(client, session_id=response.json()["session_id"], event_id="narrow-dev-confirm")
+    assert confirmed.status_code == 200
     created = app.state.lifecycle_bus.of_type(LifecycleEventType.RUN_CREATED)
     access = created[-1].payload["runtime_access"]
     # Intersection, not union: role had 3 tools / 2 sources; chat keeps only search_context + src/
@@ -615,7 +651,9 @@ def test_feishu_card_ask_question_also_records_runtime_access() -> None:
         },
     )
     assert response.status_code == 200
-    assert "run_id" in response.json()
+    assert response.json()["pending"] is True
+    assert "session_id" in response.json()
+    assert "run_id" not in response.json()
 
     session = app.state.conversation_store.get_by_binding(
         tenant_id=project.tenant_id,
@@ -625,8 +663,122 @@ def test_feishu_card_ask_question_also_records_runtime_access() -> None:
     )
     assert session is not None
     assert session.task_scratchpad["runtime_access"]["role"] == "developer"
-    created = app.state.lifecycle_bus.of_type(LifecycleEventType.RUN_CREATED)
-    assert created[-1].payload["runtime_access"]["allowed_tools"] == ["search_context"]
+    assert not app.state.lifecycle_bus.of_type(LifecycleEventType.RUN_CREATED)
+
+
+def test_knowledge_gap_recheck_card_runs_hermes_with_current_actor_scope() -> None:
+    from datetime import datetime, timezone
+    from uuid import uuid4
+
+    from project_lens.domain.knowledge_gap import (
+        GapSeverity,
+        KnowledgeGapCandidate,
+        KnowledgeGapCaseType,
+        KnowledgeGapStatus,
+    )
+    from project_lens.domain.models import (
+        Claim,
+        ClaimType,
+        Evidence,
+        EvidenceGrade,
+        EvidenceType,
+        ProjectAnswer,
+        SourceRef,
+    )
+    from project_lens.integrations.feishu.hermes_tool_loop import FeishuHermesToolLoopResult
+
+    app = create_app()
+    space = _space_with_developer_and_chat_policy()
+    project = _configure_app(app, space=space)
+    app.state.project_registry._spaces[(space.tenant_id, space.project_id)] = space
+    evidence_id = uuid4()
+    source_evidence_id = uuid4()
+    gap = app.state.knowledge_gap_service.observe(
+        KnowledgeGapCandidate(
+            project=project,
+            type=KnowledgeGapCaseType.MISSING_SOURCE,
+            title="Owner is unknown",
+            question="Who owns the payment service?",
+            description="No verified owner source yet.",
+            severity=GapSeverity.MEDIUM,
+            evidence_ids=(source_evidence_id,),
+        ),
+        authorized_project=project,
+        authorized_evidence_ids=frozenset({source_evidence_id}),
+        visibility_scope="project:read",
+        created_by="test",
+    )
+    gap = app.state.knowledge_gap_service.transition(
+        gap.id, KnowledgeGapStatus.OPEN, actor_id="u_dev", reason="validated"
+    )
+    gap = app.state.knowledge_gap_service.transition(
+        gap.id, KnowledgeGapStatus.ACKNOWLEDGED, actor_id="u_dev", reason="seen"
+    )
+    gap = app.state.knowledge_gap_service.transition(
+        gap.id, KnowledgeGapStatus.ASSIGNED, actor_id="u_dev", reason="assigned"
+    )
+    app.state.knowledge_gap_service.transition(
+        gap.id, KnowledgeGapStatus.RESOLVED_PENDING_CHECK, actor_id="u_dev", reason="source added"
+    )
+    bridge = app.state.feishu_hermes_tool_loop_bridge
+    calls = []
+
+    async def answer(**kwargs):
+        calls.append(kwargs)
+        fact = Claim(text="u_dev owns payment service", type=ClaimType.FACT, evidence_ids=(evidence_id,), grade=EvidenceGrade.B)
+        evidence = Evidence(
+            id=evidence_id,
+            type=EvidenceType.DOCUMENT,
+            project=project,
+            source=SourceRef(system="test", source_id="owners.md"),
+            content="Owner: u_dev",
+            observed_at=datetime.now(timezone.utc),
+            access_scope="project:payment:read",
+            content_hash="e" * 64,
+        )
+        return FeishuHermesToolLoopResult(
+            ok=True,
+            envelope={"ok": True},
+            tool_names=("projectlens_search_context",),
+            loop_id=kwargs["loop_id"],
+            trace_id=kwargs["trace_id"],
+            verified_answer=ProjectAnswer(
+                project=project,
+                status="identified",
+                business_summary=fact.text,
+                technical_summary=fact.text,
+                claims=(fact,),
+                facts=(fact,),
+                evidence=(evidence,),
+                conclusion=fact.text,
+            ),
+        )
+
+    bridge.answer = answer
+    client = TestClient(app)
+    response = client.post(
+        "/api/v1/feishu/events",
+        json={
+            "schema": "2.0",
+            "token": LOCAL_TOKEN,
+            "header": {"event_id": "gap-recheck-card-1", "event_type": "card.action.trigger", "tenant_key": "demo"},
+            "event": {
+                "operator": {"open_id": "u_dev"},
+                "action": {"tag": "button", "value": {"action": "knowledge_gap_recheck", "gap_id": str(gap.id)}},
+                "context": {"open_chat_id": "chat-1", "chat_type": "group"},
+            },
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "accepted"
+    assert app.state.knowledge_gap_service.get_case(gap.id).status == KnowledgeGapStatus.RESOLVED
+    audits = app.state.knowledge_gap_service.rechecks_for_gap(gap.id)
+    assert len(audits) == 1
+    assert audits[0].outcome == "verified_answer"
+    assert calls[0]["user_id"] == "u_dev"
+    assert calls[0]["chat_id"] == "chat-1"
+    assert app.state.feishu_messenger.messages[-1].chat_id == "chat-1"
+    assert app.state.feishu_messenger.messages[-1].message_type == "interactive:p2p"
 
 
 def test_role_view_is_not_used_for_permission_calculation() -> None:
@@ -646,6 +798,8 @@ def test_role_view_is_not_used_for_permission_calculation() -> None:
         ),
     )
     assert response.status_code == 200
+    assert response.json()["pending"] is True
+    _confirm_pending_question(client, session_id=response.json()["session_id"], event_id="roleview-not-acl-confirm")
     access = app.state.lifecycle_bus.of_type(LifecycleEventType.RUN_CREATED)[-1].payload[
         "runtime_access"
     ]

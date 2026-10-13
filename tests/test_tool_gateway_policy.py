@@ -16,11 +16,9 @@ def test_tool_gateway_blocks_paths_outside_allowlist() -> None:
         gateway.read_project_file("knowledge/architecture.md")
     with pytest.raises(PermissionError, match="not allowed"):
         gateway.list_project_files(prefix="knowledge/")
-    with pytest.raises(PermissionError, match="not allowed"):
-        gateway.grep_project_code("coupon", prefix="knowledge/")
 
 
-def test_tool_gateway_code_nav_tools_audit_under_allowlist() -> None:
+def test_tool_gateway_lists_allowlisted_files() -> None:
     gateway = ToolGateway(
         EngineeringPolicy(
             project_root=DEMO_SRC,
@@ -29,20 +27,8 @@ def test_tool_gateway_code_nav_tools_audit_under_allowlist() -> None:
     )
     files = gateway.list_project_files(prefix="src/", limit=20)
     assert "src/order_service.py" in files
-    hits = gateway.grep_project_code(r"create_order", prefix="src/")
-    assert hits
-    assert hits[0]["path"] == "src/order_service.py"
-    alias = gateway.search_project_code(r"coupon", prefix="src/")
-    assert alias
-    ranged = gateway.read_project_file_range(
-        "src/order_service.py", start_line=14, end_line=21
-    )
-    assert "create_order" in ranged["content"]
     names = [event.tool_name for event in gateway.audit_events]
     assert "list_project_files" in names
-    assert "grep_project_code" in names
-    assert "search_project_code" in names
-    assert "read_project_file_range" in names
     assert all(event.risk_class == RiskClass.READ for event in gateway.audit_events)
     assert all(event.risk_class != RiskClass.APPLY for event in gateway.audit_events)
 

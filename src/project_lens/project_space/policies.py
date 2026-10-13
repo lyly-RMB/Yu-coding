@@ -98,6 +98,7 @@ class EffectiveAccessScope:
     policy_version: str = POLICY_VERSION
     chat_type: ChatType = "group"
     allow_private_details: bool = False
+    physical_actor_id: str | None = None
 
 
 def effective_scope_to_audit_dict(scope: EffectiveAccessScope) -> dict[str, object]:
@@ -110,6 +111,11 @@ def effective_scope_to_audit_dict(scope: EffectiveAccessScope) -> dict[str, obje
         "tenant_id": scope.project.tenant_id,
         "project_id": scope.project.project_id,
         "actor_id": scope.actor_id,
+        **(
+            {"physical_actor_id": scope.physical_actor_id}
+            if scope.physical_actor_id
+            else {}
+        ),
         "chat_id": scope.chat_id,
         "role": scope.role.value,
         "visibility_level": scope.visibility_level.value,
@@ -180,6 +186,7 @@ def effective_scope_from_audit_dict(
         policy_version=policy_version,
         chat_type=chat_type,  # type: ignore[arg-type]
         allow_private_details=allow_private_details,
+        physical_actor_id=(str(payload["physical_actor_id"]) if payload.get("physical_actor_id") else None),
     )
 
 

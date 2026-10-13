@@ -2,7 +2,7 @@ from uuid import UUID, uuid4
 
 from project_lens.agent.draft import AnswerDraft, DraftFact, resolve_citation_id
 from project_lens.agent.hermes_answer import project_answer_from_hermes
-from project_lens.domain.models import ClaimType, ProjectRef
+from project_lens.domain.models import ClaimType, EvidenceGrade, ProjectRef
 from project_lens.integrations.feishu.hermes_loop_runner import HermesLoopToolCall
 from project_lens.integrations.feishu.views import is_degraded_answer
 
@@ -56,7 +56,7 @@ def test_hermes_answer_uses_only_returned_citation_ids() -> None:
     assert answer.evidence[0].metadata["citation_only"] is True
 
 
-def test_hermes_answer_demotes_unknown_citation_to_unknown() -> None:
+def test_hermes_answer_keeps_unknown_citation_as_uncited_fact() -> None:
     answer = project_answer_from_hermes(
         project=ProjectRef(tenant_id="demo", project_id="payment"),
         draft=AnswerDraft(
@@ -65,9 +65,11 @@ def test_hermes_answer_demotes_unknown_citation_to_unknown() -> None:
         tool_calls=(),
     )
 
-    assert answer.facts == ()
-    assert answer.unknowns
-    assert is_degraded_answer(answer) is True
+    assert len(answer.facts) == 1
+    assert answer.facts[0].text == "owner is Ada"
+    assert answer.facts[0].evidence_ids == ()
+    assert not any("未通过引用校验" in item for item in answer.unknowns)
+    assert is_degraded_answer(answer) is False
 
 
 def test_empty_citations_backfill_from_search_context_ledger() -> None:
@@ -132,8 +134,10 @@ def test_ambiguous_short_prefix_does_not_resolve() -> None:
         draft=draft,
         tool_calls=(_search_call(first, second),),
     )
-    assert answer.facts == ()
-    assert any("未通过引用校验" in item for item in answer.unknowns)
+    assert len(answer.facts) == 1
+    assert answer.facts[0].evidence_ids == ()
+    assert is_degraded_answer(answer) is False
+    assert not any("未通过引用校验" in item for item in answer.unknowns)
 
 
 def test_cited_facts_with_dimension_unknowns_are_not_degraded() -> None:
@@ -175,3 +179,79 @@ def test_prose_uuid_extracted_when_citations_array_empty() -> None:
     )
     assert answer.facts[0].evidence_ids == (evidence_id,)
     assert is_degraded_answer(answer) is False
+
+
+def test_ordinal_e1_citations_are_not_guessed_from_ledger_order() -> None:
+    first = uuid4()
+    second = uuid4()
+    draft = AnswerDraft(
+        facts=[
+            DraftFact(
+                text="知识库不空，但可引用证据链不完整。[E1][E2]",
+                citations=["E1", "E2"],
+            )
+        ],
+        unknowns=["没有找到明确 owner"],
+        business_summary="知识库不空，但可引用证据链不完整。[E1][E2]",
+    )
+    answer = project_answer_from_hermes(
+        project=ProjectRef(tenant_id="demo", project_id="projectlens"),
+        draft=draft,
+        tool_calls=(_search_call(first, second),),
+    )
+    assert answer.facts
+    assert answer.facts[0].evidence_ids == ()
+    assert answer.facts[0].grade == EvidenceGrade.C
+
+
+def test_unstructured_markdown_is_not_promoted_to_fact() -> None:
+    """Plain Markdown remains answer text; only structured claims become facts."""
+
+    first = uuid4()
+    second = uuid4()
+    from project_lens.agent.hermes_answer_parser import parse_hermes_answer
+
+    prose = (
+        "默认是 lexical 词法检索（精确匹配 + BM25）。"
+        "依据：docs/adr/knowledge-retrieval-policy.md。[E1][E2]"
+    )
+    draft = parse_hermes_answer(prose)
+    assert draft.facts == []
+    assert any("未结构化文本" in item for item in draft.unknowns)
+
+    answer = project_answer_from_hermes(
+        project=ProjectRef(tenant_id="demo", project_id="projectlens"),
+        draft=draft,
+        tool_calls=(_search_call(first, second),),
+    )
+    assert answer.facts == ()
+    assert any("未结构化文本" in item for item in answer.unknowns)
+    assert answer.status == "unknown"
+
+
+def test_answer_text_source_marker_becomes_structured_citation_not_fact() -> None:
+    evidence_id = uuid4()
+    call = HermesLoopToolCall(
+        name="projectlens_read_project_file",
+        arguments={},
+        envelope={
+            "ok": True,
+            "evidence_refs": [{
+                "id": str(evidence_id),
+                "kind": "document",
+                "source_uri": "repository:docs/projectlens-product-document.md",
+                "summary": "ProjectLens product document",
+            }],
+        },
+    )
+    answer = project_answer_from_hermes(
+        project=ProjectRef(tenant_id="demo", project_id="projectlens"),
+        draft=AnswerDraft(unknowns=["没有结构化事实"]),
+        tool_calls=(call,),
+        answer_text="功能依据：docs/projectlens-product-document.md",
+    )
+    assert not answer.facts
+    assert [item.id for item in answer.citations] == [evidence_id]
+    from project_lens.integrations.feishu.role_views import source_summary_line
+
+    assert "引用资料：没有" not in source_summary_line(answer)

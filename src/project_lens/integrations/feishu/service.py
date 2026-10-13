@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from dataclasses import dataclass
@@ -32,6 +33,9 @@ from project_lens.application.risk_feedback_service import (
     parse_risk_feedback_text,
 )
 from project_lens.application.risk_notification_service import RiskNotificationService
+from project_lens.application.knowledge_gap_service import KnowledgeGapService
+from project_lens.application.knowledge_gap_recheck import KnowledgeGapRecheckService
+from project_lens.domain.knowledge_gap import GapActionType, KnowledgeGapStatus
 from project_lens.context.memory_store import MemoryStore
 from project_lens.context.memory_retrieval import build_memory_summary
 from project_lens.context.memory_authorization import authorize_memory_candidates
@@ -47,7 +51,7 @@ from project_lens.integrations.feishu.cards import (
     format_answer_as_text,
     format_failure_as_text,
     render_about_bot_card,
-    render_collaboration_gate_card,
+    render_answer_card,
     render_context_date_window_card,
     render_context_edit_card,
     render_context_more_history_card,
@@ -58,7 +62,13 @@ from project_lens.integrations.feishu.cards import (
     render_risk_feedback_result_card,
     decode_group_page_stack,
 )
-from project_lens.integrations.feishu.commands import rewrite_feishu_message
+from project_lens.integrations.feishu.commands import (
+    FeishuProjectCommand,
+    classify_feishu_command,
+    is_context_manager_command,
+    rewrite_feishu_message,
+    strip_context_manager_prefix,
+)
 from project_lens.integrations.feishu.idempotency import EventDeduplicator
 from project_lens.integrations.feishu.identity import FeishuRunContext
 from project_lens.integrations.feishu.hermes_tool_loop import (
@@ -66,6 +76,7 @@ from project_lens.integrations.feishu.hermes_tool_loop import (
     hermes_loop_scratchpad_entry,
 )
 from project_lens.integrations.feishu.hermes_context import build_hermes_project_context
+from project_lens.integrations.feishu.virtual_members import VirtualMemberController
 from project_lens.integrations.feishu.ingress import (
     FeishuIngressKind,
     FeishuIngressRouter,
@@ -91,6 +102,8 @@ class FeishuCallbackResult:
     card: dict[str, Any] | None = None
     toast_type: str | None = None
     toast_content: str | None = None
+    session_id: str | None = None
+    pending: bool = False
 
     def to_response(self) -> dict[str, Any]:
         if self.challenge is not None and self.status == "verified":
@@ -98,6 +111,10 @@ class FeishuCallbackResult:
         response: dict[str, Any] = {"status": self.status}
         if self.run_id:
             response["run_id"] = self.run_id
+        if self.session_id:
+            response["session_id"] = self.session_id
+        if self.pending:
+            response["pending"] = True
         if self.proposal_id:
             response["proposal_id"] = self.proposal_id
         if self.card is not None:
@@ -131,6 +148,10 @@ class FeishuEventService:
         risk_feedback_service: RiskFeedbackService | None = None,
         risk_engine: RiskEngine | None = None,
         risk_notification_service: RiskNotificationService | None = None,
+        knowledge_gap_service: KnowledgeGapService | None = None,
+        knowledge_gap_recheck_service: KnowledgeGapRecheckService | None = None,
+        virtual_members: VirtualMemberController | None = None,
+        context_preview_enabled: bool = True,
     ) -> None:
         self._run_service = run_service
         self._verifier = verifier
@@ -160,8 +181,28 @@ class FeishuEventService:
         self._risk_feedback = risk_feedback_service
         self._risk_engine = risk_engine
         self._risk_notifications = risk_notification_service
+        self._knowledge_gaps = knowledge_gap_service
+        self._knowledge_gap_rechecks = knowledge_gap_recheck_service
+        self._virtual_members = virtual_members or VirtualMemberController()
+        self._virtual_members = virtual_members
+        self._context_preview_enabled = bool(context_preview_enabled)
         self._followup = FollowupRewriter()
         self._ingress = FeishuIngressRouter()
+        # Each conversation has one live answer generation.  A newer message
+        # advances the generation and makes all older background jobs stale.
+        self._latest_answer_generation: dict[str, int] = {}
+        # Serialize Hermes replies per Feishu chat. Events can arrive faster
+        # than the model responds; queueing prevents overlapping runs and
+        # keeps the visible conversation order deterministic.
+        self._chat_answer_locks: dict[str, asyncio.Lock] = {}
+
+    def _begin_latest_answer(self, chat_id: str) -> int:
+        generation = self._latest_answer_generation.get(chat_id, 0) + 1
+        self._latest_answer_generation[chat_id] = generation
+        return generation
+
+    def _is_latest_answer(self, chat_id: str, generation: int) -> bool:
+        return self._latest_answer_generation.get(chat_id) == generation
 
     def _run_detail(self, request: ProjectAgentRunDetailRequest) -> dict[str, Any]:
         if self._run_detail_service is None:
@@ -331,10 +372,44 @@ class FeishuEventService:
         except PermissionError as exc:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
 
+        sim = self._virtual_members.parse(text)
+        if sim is not None:
+            action, payload = sim
+            if action in {"help", "list", "off", "whoami", "invalid"}:
+                background_tasks.add_task(self._messenger.post_text, chat_id, self._virtual_members.handle(physical_id=open_id, chat_id=chat_id, command=sim))
+                return FeishuCallbackResult(status="accepted")
+            response = self._virtual_members.handle(physical_id=open_id, chat_id=chat_id, command=sim)
+            effective = self._virtual_members.effective_actor(physical_id=open_id, chat_id=chat_id)
+            if effective and payload:
+                text = payload
+            else:
+                background_tasks.add_task(self._messenger.post_text, chat_id, response)
+                return FeishuCallbackResult(status="accepted")
+
+        # Virtual members change ACL / role view only. Conversation continuity must
+        # stay on the real Feishu sender so /sim product → developer → qa → plain
+        # "summarize the discussion" share one session (PL-FEISHU-001).
+        physical_user_id = open_id
+        effective_actor_id = self._virtual_members.effective_actor(physical_id=open_id, chat_id=chat_id)
+        if effective_actor_id:
+            context = FeishuRunContext(
+                project=context.project,
+                user_id=effective_actor_id,
+                channel_id=context.channel_id,
+                actor=type(context.actor)(
+                    tenant_key=context.actor.tenant_key,
+                    actor_id=effective_actor_id,
+                    chat_id=context.actor.chat_id,
+                    chat_type=context.actor.chat_type,
+                    source="test_fixture",
+                    authenticated=True,
+                ),
+            )
+
         session = self._conversation.get_or_create(
             tenant_id=context.project.tenant_id,
             chat_id=message.chat_id,
-            user_id=context.user_id,
+            user_id=physical_user_id,
             project=context.project,
         )
         message_access = self._resolve_message_access(
@@ -342,17 +417,32 @@ class FeishuEventService:
             message_id=message.message_id,
         )
         session, _runtime_access = self._attach_runtime_access(session, message_access)
-        question_for_run, followup_rewrite = self._conversation.prepare_question(session, text)
+        context_requested = is_context_manager_command(text)
+        routed_text = strip_context_manager_prefix(text) if context_requested else text
+        question_for_run, followup_rewrite = self._conversation.prepare_question(
+            session, routed_text
+        )
         ingress = self._ingress.decide(
-            text,
+            routed_text,
             session=session,
             followup_rewrite=followup_rewrite,
         )
+        if classify_feishu_command(text) == FeishuProjectCommand.RESET_CONVERSATION:
+            self._latest_answer_generation[chat_id] = (
+                self._latest_answer_generation.get(chat_id, 0) + 1
+            )
+            self._conversation.store.delete(session)
+            background_tasks.add_task(
+                self._messenger.post_text,
+                chat_id,
+                "当前对话已清空，下一条消息将开启新对话。",
+            )
+            return FeishuCallbackResult(status="accepted")
         if followup_rewrite is None:
             text_for_rewrite = (
                 strip_project_debug_slash(text)
                 if ingress.kind == FeishuIngressKind.DEBUG_PROJECT_COMMAND
-                else text
+                else routed_text
             )
             question_for_run = rewrite_feishu_message(text_for_rewrite)
         audit_rewrite = None if question_for_run == text else question_for_run
@@ -395,19 +485,16 @@ class FeishuEventService:
             return FeishuCallbackResult(status="accepted")
 
         if ingress.creates_project_run:
-            session = self._conversation.refresh_pending_send(
-                session,
-                question=text,
+            return self._dispatch_project_question(
+                session=session,
+                context=context,
+                message_access=message_access,
+                chat_id=message.chat_id,
+                question=routed_text,
                 question_for_run=question_for_run,
+                background_tasks=background_tasks,
+                force_context_preview=context_requested,
             )
-            pending_state = session.pending_send
-            assert pending_state is not None
-            background_tasks.add_task(
-                self._messenger.post_card,
-                message.chat_id,
-                self._context_preview_card_payload(session),
-            )
-            return FeishuCallbackResult(status="accepted")
 
         # Bot/meta questions (e.g. 你用的是什么模型) — never project Skill analysis.
         if ingress.kind == FeishuIngressKind.BOT_META:
@@ -419,22 +506,6 @@ class FeishuEventService:
             )
             background_tasks.add_task(
                 self._reply_about_bot,
-                message.chat_id,
-                text,
-            )
-            return FeishuCallbackResult(status="accepted")
-
-        # Non-project chitchat → collaboration gate (no forced Skill AgentRun).
-        if ingress.kind == FeishuIngressKind.NON_PROJECT_CHITCHAT:
-            self._conversation.record_turn(
-                session,
-                user_id=context.user_id,
-                text=text,
-                rewritten_question=None,
-            )
-            background_tasks.add_task(
-                self._reply_collaboration_gate,
-                context.project,
                 message.chat_id,
                 text,
             )
@@ -522,12 +593,25 @@ class FeishuEventService:
                 raise HTTPException(status_code=400, detail="missing Feishu operator open_id")
             if not tenant_key.strip():
                 raise HTTPException(status_code=400, detail="missing Feishu tenant_key")
-            return self._start_question_from_card(
+            result = self._start_question_from_card(
                 tenant_key=tenant_key.strip(),
                 chat_id=chat_id,
                 user_id=operator_open_id,
                 text=question,
                 background_tasks=background_tasks,
+                from_card=True,
+            )
+            return FeishuCallbackResult(
+                status=result.status,
+                run_id=result.run_id,
+                session_id=result.session_id,
+                pending=result.pending,
+                card=(
+                    self._context_preview_card_payload(session)
+                    if result.session_id
+                    and (session := self._conversation.store.get(UUID(result.session_id))) is not None
+                    else None
+                ),
             )
 
         if action_name == "context_direct_answer":
@@ -701,6 +785,80 @@ class FeishuEventService:
             )
             return FeishuCallbackResult(status="accepted", run_id=run_id_raw)
 
+        if action_name.startswith("knowledge_gap_"):
+            if self._knowledge_gaps is None:
+                return FeishuCallbackResult(status="ignored")
+            gap_id_raw = str(value.get("gap_id") or "").strip()
+            operator_open_id = str(operator.get("open_id") or "").strip()
+            if not gap_id_raw or not operator_open_id:
+                raise HTTPException(status_code=400, detail="knowledge-gap action requires gap_id and operator open_id")
+            try:
+                gap_id = UUID(gap_id_raw)
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail="invalid gap_id") from exc
+            case = self._knowledge_gaps.get_case(gap_id)
+            if case is None:
+                raise HTTPException(status_code=404, detail="knowledge gap not found")
+            if not chat_id or not tenant_key:
+                raise HTTPException(status_code=400, detail="knowledge-gap action requires Feishu tenant and chat context")
+            try:
+                actor_context = self._identity_mapper.resolve(
+                    tenant_key=tenant_key,
+                    chat_id=chat_id,
+                    user_id=operator_open_id,
+                    chat_type=str(context.get("chat_type") or "group"),
+                )
+            except PermissionError as exc:
+                raise HTTPException(status_code=403, detail="actor is not authorized for this project") from exc
+            if actor_context.project != case.project:
+                raise HTTPException(status_code=404, detail="knowledge gap not found")
+            try:
+                if action_name == "knowledge_gap_accept":
+                    result = self._knowledge_gaps.propose_action(gap_id, action_type=GapActionType.ADD_SOURCE, proposed_by=operator_open_id, description="Feishu owner accepted knowledge gap")
+                elif action_name == "knowledge_gap_recheck":
+                    if self._knowledge_gap_rechecks is None:
+                        raise HTTPException(status_code=503, detail="knowledge-gap recheck is not configured")
+                    access = self._resolve_message_access(actor_context)
+                    if case.status in {KnowledgeGapStatus.WAITING_FOR_SOURCE, KnowledgeGapStatus.REOPENED}:
+                        case = self._knowledge_gaps.transition(
+                            gap_id, KnowledgeGapStatus.RESOLVED_PENDING_CHECK,
+                            actor_id=operator_open_id,
+                            reason="Authorized Feishu operator requested recheck",
+                        )
+                    if case.status not in {KnowledgeGapStatus.RESOLVED_PENDING_CHECK, KnowledgeGapStatus.RESOLVED}:
+                        raise HTTPException(status_code=409, detail="knowledge gap must be waiting for source before recheck")
+                    background_tasks.add_task(
+                        self._run_knowledge_gap_recheck,
+                        gap_id,
+                        actor_context.actor,
+                        access.effective_scope,
+                        case.project,
+                        chat_id,
+                    )
+                elif action_name == "knowledge_gap_recheck_source_updates":
+                    if self._knowledge_gap_rechecks is None:
+                        raise HTTPException(status_code=503, detail="knowledge-gap recheck is not configured")
+                    access = self._resolve_message_access(actor_context)
+                    background_tasks.add_task(
+                        self._run_source_update_rechecks,
+                        actor_context.actor,
+                        access.effective_scope,
+                        case.project,
+                        chat_id,
+                    )
+                    return FeishuCallbackResult(status="accepted")
+                elif action_name == "knowledge_gap_snooze":
+                    result = self._knowledge_gaps.transition(gap_id, KnowledgeGapStatus.SNOOZED, actor_id=operator_open_id, reason="Snoozed from Feishu card")
+                elif action_name == "knowledge_gap_dismiss":
+                    result = self._knowledge_gaps.transition(gap_id, KnowledgeGapStatus.DISMISSED, actor_id=operator_open_id, reason="Dismissed from Feishu card")
+                else:
+                    return FeishuCallbackResult(status="ignored")
+            except (KeyError, ValueError) as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+            if chat_id:
+                background_tasks.add_task(self._messenger.post_user_card, chat_id, {"msg_type": "interactive", "card": {"schema": "2.0", "body": {"elements": [{"tag": "markdown", "content": f"知识缺口已更新：`{gap_id}`\n操作：{action_name}"}]}}})
+            return FeishuCallbackResult(status="accepted")
+
         if action_name.startswith("risk_"):
             if self._risk_feedback is None or self._risk_engine is None:
                 return FeishuCallbackResult(status="ignored")
@@ -826,10 +984,12 @@ class FeishuEventService:
         user_id: str,
         text: str,
         background_tasks: BackgroundTasks,
+        from_card: bool = False,
         chat_type: str = "group",
     ) -> FeishuCallbackResult:
         if chat_type not in {"p2p", "group"}:
             chat_type = "group"
+        physical_user_id = user_id
         try:
             context: FeishuRunContext = self._identity_mapper.resolve(
                 tenant_key=tenant_key,
@@ -840,17 +1000,39 @@ class FeishuEventService:
         except PermissionError as exc:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
 
+        effective_actor_id = self._virtual_members.effective_actor(
+            physical_id=physical_user_id, chat_id=chat_id
+        )
+        if effective_actor_id:
+            context = FeishuRunContext(
+                project=context.project,
+                user_id=effective_actor_id,
+                channel_id=context.channel_id,
+                actor=type(context.actor)(
+                    tenant_key=context.actor.tenant_key,
+                    actor_id=effective_actor_id,
+                    chat_id=context.actor.chat_id,
+                    chat_type=context.actor.chat_type,
+                    source="test_fixture",
+                    authenticated=True,
+                ),
+            )
+
         session = self._conversation.get_or_create(
             tenant_id=context.project.tenant_id,
             chat_id=chat_id,
-            user_id=context.user_id,
+            user_id=physical_user_id,
             project=context.project,
         )
         message_access = self._resolve_message_access(context)
         session, _runtime_access = self._attach_runtime_access(session, message_access)
-        question_for_run, followup_rewrite = self._conversation.prepare_question(session, text)
+        context_requested = is_context_manager_command(text)
+        routed_text = strip_context_manager_prefix(text) if context_requested else text
+        question_for_run, followup_rewrite = self._conversation.prepare_question(
+            session, routed_text
+        )
         ingress = self._ingress.decide(
-            text,
+            routed_text,
             session=session,
             followup_rewrite=followup_rewrite,
         )
@@ -858,11 +1040,9 @@ class FeishuEventService:
             text_for_rewrite = (
                 strip_project_debug_slash(text)
                 if ingress.kind == FeishuIngressKind.DEBUG_PROJECT_COMMAND
-                else text
+                else routed_text
             )
             question_for_run = rewrite_feishu_message(text_for_rewrite)
-        audit_rewrite = None if question_for_run == text else question_for_run
-
         role_view = self._try_role_view_switch(
             session=session,
             text=text,
@@ -870,7 +1050,7 @@ class FeishuEventService:
             chat_id=chat_id,
             background_tasks=background_tasks,
         )
-        if role_view is not None:
+        if role_view is not None and not from_card:
             return role_view
 
         if (
@@ -884,19 +1064,82 @@ class FeishuEventService:
             )
             return FeishuCallbackResult(status="accepted")
 
+        return self._dispatch_project_question(
+            session=session,
+            context=context,
+            message_access=message_access,
+            chat_id=chat_id,
+            question=routed_text,
+            question_for_run=question_for_run,
+            background_tasks=background_tasks,
+            force_context_preview=context_requested,
+        )
+
+    def _dispatch_project_question(
+        self,
+        *,
+        session: ConversationSession,
+        context: FeishuRunContext,
+        message_access: MessageAccessContext,
+        chat_id: str,
+        question: str,
+        question_for_run: str,
+        background_tasks: BackgroundTasks,
+        force_context_preview: bool = False,
+    ) -> FeishuCallbackResult:
+        generation = self._begin_latest_answer(chat_id)
+
         session = self._conversation.refresh_pending_send(
             session,
-            question=text,
+            question=question,
             question_for_run=question_for_run,
         )
         pending_state = session.pending_send
         assert pending_state is not None
+        if self._context_preview_enabled or force_context_preview:
+            background_tasks.add_task(
+                self._messenger.post_card,
+                chat_id,
+                self._context_preview_card_payload(session),
+            )
+            return FeishuCallbackResult(
+                status="accepted", session_id=str(session.session_id), pending=True
+            )
+
+        run_question = pending_state.question_for_run or pending_state.question
+        if not run_question.strip():
+            return FeishuCallbackResult(status="ignored")
+        try:
+            pending = self._prepare_hermes_execution(
+                project=context.project,
+                actor=context.actor,
+                scope=message_access.effective_scope,
+                question=run_question,
+                entry_mode="feishu_context_preview_bypass",
+                session=session,
+                use_pending_send=False,
+            )
+        except PermissionError as exc:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        # Ack first so Feishu is not silent while Hermes (often 30s–minutes) runs.
+        # Keep ack + Hermes in ONE background task: Starlette runs BackgroundTasks
+        # sequentially, so a hung/slow ack must not delay or skip Hermes.
         background_tasks.add_task(
-            self._messenger.post_card,
+            self._ack_and_execute_prepared_hermes_tool_loop_and_reply,
+            pending,
             chat_id,
-            self._context_preview_card_payload(session),
+            generation,
+            session.session_id,
+            pending_state.question or run_question,
+            None if run_question == pending_state.question else run_question,
         )
-        return FeishuCallbackResult(status="accepted")
+        return FeishuCallbackResult(
+            status="accepted",
+            run_id=str(pending.run.id),
+            session_id=str(session.session_id),
+        )
 
     def _handle_context_direct_answer(
         self,
@@ -958,17 +1201,19 @@ class FeishuEventService:
                 question=question,
                 entry_mode="feishu_context_preview_direct",
                 session=session,
-                use_pending_send=True,
+                use_pending_send=False,
             )
         except PermissionError as exc:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
         except ValueError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
 
+        generation = self._begin_latest_answer(chat_id)
         background_tasks.add_task(
             self._execute_prepared_hermes_tool_loop_and_reply,
             pending,
             chat_id,
+            generation,
             session.session_id,
             pending_state.question or question,
             None if question == pending_state.question else question,
@@ -1676,10 +1921,41 @@ class FeishuEventService:
             context=context,
         )
 
+    async def _ack_and_execute_prepared_hermes_tool_loop_and_reply(
+        self,
+        pending: PendingHermesExecution,
+        chat_id: str,
+        generation: int,
+        session_id: UUID | None = None,
+        raw_text: str | None = None,
+        followup_rewrite: str | None = None,
+    ) -> None:
+        """Post a short ack, then always continue into the Hermes tool loop."""
+
+        lock = self._chat_answer_locks.setdefault(chat_id, asyncio.Lock())
+        async with lock:
+            try:
+                await self._messenger.post_text(chat_id, "收到，正在回答…")
+            except Exception:  # noqa: BLE001 - ack is best-effort; Hermes must still run
+                logger.exception(
+                    "feishu ack post failed chat_id=%s run_id=%s",
+                    chat_id,
+                    pending.run.id,
+                )
+            await self._execute_prepared_hermes_tool_loop_and_reply(
+                pending,
+                chat_id,
+                generation,
+                session_id,
+                raw_text,
+                followup_rewrite,
+            )
+
     async def _execute_prepared_hermes_tool_loop_and_reply(
         self,
         pending: PendingHermesExecution,
         chat_id: str,
+        generation: int,
         session_id: UUID | None = None,
         raw_text: str | None = None,
         followup_rewrite: str | None = None,
@@ -1854,17 +2130,38 @@ class FeishuEventService:
                     executed.id,
                 )
                 memory_proposal = None
-        body = format_answer_as_text(
+        # Successful Hermes answers always use the ProjectLens interactive card.
+        # Keeping one renderer here preserves the white card layout and its
+        # citations/actions even when no memory approval is needed.
+        card = render_answer_card(
             executed,
             executed.answer,
             memory_proposal=memory_proposal,
+            show_debug_audit=False,
         )
-        await self._messenger.post_text(chat_id, body)
+        if getattr(executed, "entry_mode", "") == "feishu_context_preview_direct":
+            body = (executed.answer.answer_text or executed.answer.business_summary or executed.answer.conclusion).strip()
+            await self._safe_post_text(chat_id, body or format_failure_as_text(executed))
+            return
+        try:
+            await self._messenger.post_card(chat_id, card)
+        except Exception:  # noqa: BLE001 - preserve answer delivery if card formatting/API fails
+            logger.exception(
+                "feishu answer card delivery failed; falling back to text chat_id=%s run_id=%s",
+                chat_id,
+                executed.id,
+            )
+            body = (executed.answer.answer_text or executed.answer.business_summary or executed.answer.conclusion).strip()
+            if body:
+                await self._safe_post_text(chat_id, body)
+            else:
+                await self._safe_post_text(chat_id, format_failure_as_text(executed))
+            return
         logger.info(
-            "feishu hermes answer posted chat_id=%s run_id=%s chars=%d",
+            "feishu hermes answer card posted chat_id=%s run_id=%s proposal_id=%s",
             chat_id,
             executed.id,
-            len(body),
+            memory_proposal.id if memory_proposal is not None else None,
         )
 
     def _try_role_view_switch(
@@ -1918,14 +2215,37 @@ class FeishuEventService:
             format_answer_as_text(run, run.answer, audience=audience),
         )
 
-    async def _reply_collaboration_gate(
-        self,
-        project: ProjectRef,
-        chat_id: str,
-        user_text: str,
-    ) -> None:
-        card = render_collaboration_gate_card(user_text=user_text, project=project)
-        await self._messenger.post_text(chat_id, card_payload_as_text(card))
+    async def _run_knowledge_gap_recheck(self, gap_id, actor, scope, project, reply_chat_id: str) -> None:
+        try:
+            result = await self._knowledge_gap_rechecks.recheck(
+                gap_id,
+                actor=actor,
+                scope=scope,
+                authorized_project=project,
+                trigger="feishu_card_action",
+            )
+            message = f"知识缺口复查完成：`{gap_id}`\n结果：{result.audit.outcome}\n状态：{result.case.status.value}"
+        except Exception:
+            logger.exception("Feishu knowledge-gap recheck failed gap_id=%s", gap_id)
+            message = f"知识缺口复查失败：`{gap_id}`，状态保持待复查，请稍后重试。"
+        await self._messenger.post_user_card(
+            reply_chat_id,
+            {"msg_type": "interactive", "card": {"schema": "2.0", "body": {"elements": [{"tag": "markdown", "content": message}]}}},
+        )
+
+    async def _run_source_update_rechecks(self, actor, scope, project, reply_chat_id: str) -> None:
+        try:
+            results = await self._knowledge_gap_rechecks.dispatch_source_jobs(
+                project=project, actor=actor, scope=scope,
+            )
+            message = f"资料更新复查完成：{len(results)} 条缺口已复查。"
+        except Exception:
+            logger.exception("Feishu source-update recheck dispatch failed project=%s", project.project_id)
+            message = "资料更新复查未能完成；任务保留，可在授权后重试。"
+        await self._messenger.post_user_card(
+            reply_chat_id,
+            {"msg_type": "interactive", "card": {"schema": "2.0", "body": {"elements": [{"tag": "markdown", "content": message}]}}},
+        )
 
     async def _reply_about_bot(self, chat_id: str, user_text: str) -> None:
         card = render_about_bot_card(user_text=user_text)
@@ -1960,7 +2280,7 @@ class FeishuEventService:
             statuses,
             read_error=read_error,
         )
-        await self._messenger.post_text(chat_id, card_payload_as_text(card))
+        await self._messenger.post_card(chat_id, card)
 
 
 def _parse_feishu_date_option(option: str, *, end: bool) -> datetime | None:

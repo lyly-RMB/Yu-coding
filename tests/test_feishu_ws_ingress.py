@@ -4,10 +4,26 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+from project_lens.integrations.feishu.long_connection import signed_callback_auth
+from project_lens.integrations.feishu.security import build_signature
 from project_lens.integrations.feishu.ws_ingress import (
     _card_action_to_payload,
     _message_event_to_payload,
 )
+
+
+def test_signed_callback_auth_empty_without_secret() -> None:
+    assert signed_callback_auth(body=b"{}", signing_secret=None) == (None, None, None)
+    assert signed_callback_auth(body=b"{}", signing_secret="") == (None, None, None)
+
+
+def test_signed_callback_auth_matches_build_signature() -> None:
+    body = b'{"token":"tok"}'
+    timestamp, nonce, signature = signed_callback_auth(body=body, signing_secret="secret")
+    assert timestamp and nonce and signature
+    assert signature == build_signature(
+        body=body, timestamp=timestamp, nonce=nonce, signing_secret="secret"
+    )
 
 
 def test_message_event_to_payload_shape() -> None:

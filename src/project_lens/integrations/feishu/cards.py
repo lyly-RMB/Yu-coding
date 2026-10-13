@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import timezone
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from uuid import UUID
 
 from project_lens.application.audience_views import render_audience_view
@@ -23,14 +24,16 @@ from project_lens.integrations.feishu.adapter import FeishuCard
 from project_lens.integrations.feishu.audiences import (
     AnswerAudience,
     audience_label,
-    select_answer_audience,
 )
 from project_lens.integrations.feishu.audit_summary import (
     FeishuAuditSummary,
     build_feishu_audit_summary,
 )
 from project_lens.integrations.feishu.role_views import render_role_view_elements
-from project_lens.integrations.feishu.role_views import render_audience_view_elements
+from project_lens.integrations.feishu.role_views import (
+    render_audience_view_elements,
+    source_summary_line,
+)
 from project_lens.integrations.feishu.views import (
     AnswerView,
     DEGRADED_ANSWER_TITLE,
@@ -51,9 +54,28 @@ from project_lens.workflow.skills import (
 from project_lens.project_space.policies import effective_scope_from_audit_dict
 
 
-def render_progress_text(stage: str, run: AgentRun) -> str:
-    del run  # keep signature for call sites; do not surface run_id on chat progress
-    return f"ProjectLens 已收到问题，正在{stage}…"
+def _display_local_time(value: object) -> str:
+    """Render stored UTC timestamps as concise China Standard Time."""
+    if not isinstance(value, datetime):
+        return "(no-time)"
+    stamp = value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
+    return stamp.astimezone(ZoneInfo("Asia/Shanghai")).strftime("%Y-%m-%d %H:%M")
+
+
+def _clean_structured_text(value: object) -> str:
+    """Turn model/tool dictionaries into readable user-facing text."""
+    if isinstance(value, dict):
+        text = value.get("text") or value.get("title") or value.get("description")
+        if text:
+            return str(text).strip()
+        return "; ".join(f"{key}: {val}" for key, val in value.items())
+    return str(value).strip()
+
+
+def _answer_body(answer: ProjectAnswer) -> str:
+    """Prefer Hermes' complete response; summaries are compatibility fallback."""
+
+    return (answer.answer_text or answer.business_summary or answer.conclusion or "").strip()
 
 
 def render_risk_card(
@@ -133,9 +155,11 @@ def render_answer_card(
     """
 
     view = select_answer_view(run, answer)
-    selected_audience = select_answer_audience(run.question, explicit=audience)
+    selected_audience = audience or AnswerAudience.TEAM
     audience_view = None
-    if run.runtime_access is not None and run.channel_id:
+    # Audience views are opt-in. Automatic role projection used to append a
+    # second copy of the complete answer to every card.
+    if audience is not None and run.runtime_access is not None and run.channel_id:
         scope = effective_scope_from_audit_dict(
             run.runtime_access,
             project=run.project,
@@ -156,9 +180,11 @@ def render_answer_card(
     )
 
     # Evidence/debug RoleViews always render from the same answer; otherwise
-    # insufficient-evidence stays the actionable TEAM-first fallback.
+    # empty-result stays the actionable TEAM-first fallback.
     if audience_view is not None:
         elements = render_audience_view_elements(run, audience_view)
+        if selected_audience not in {AnswerAudience.EVIDENCE, AnswerAudience.DEBUG}:
+            elements.append(_markdown(f"**来源摘要**\n{source_summary_line(answer)}"))
     elif selected_audience in {AnswerAudience.EVIDENCE, AnswerAudience.DEBUG}:
         elements = render_role_view_elements(
             run, answer, view=view, audience=selected_audience
@@ -241,34 +267,33 @@ def _render_view_elements(
         _markdown(
             f"**回答状态**\n{confidence_status_label(answer.confidence, has_evidence=bool(answer.evidence))}"
         ),
-        _markdown(f"**一句话结论**\n{answer.business_summary or '（暂无业务结论）'}"),
+        _markdown(f"**回答**\n{_answer_body(answer) or '（暂无业务结论）'}"),
     ]
 
-    if view == AnswerView.PROJECT_OVERVIEW:
-        elements.append(_markdown(_project_intro_focus_text(answer)))
-    elif view == AnswerView.PROJECT_MAP:
-        elements.append(_markdown(_project_map_focus_text(answer)))
-    elif view == AnswerView.KNOWLEDGE_GAP:
-        elements.append(_markdown(_knowledge_gap_focus_text(answer)))
-    elif view == AnswerView.OWNER_LOOKUP:
-        elements.append(_markdown(_owner_lookup_focus_text(answer)))
-    elif view == AnswerView.CHANGE_IMPACT:
-        elements.append(_markdown(_change_impact_focus_text(answer)))
-    elif view == AnswerView.INCIDENT_COLLABORATION:
-        elements.append(_markdown(_incident_collaboration_focus_text(answer)))
-    elif view == AnswerView.CODE_EXPLANATION:
-        elements.append(_markdown(_code_explanation_focus_text(answer)))
-    elif view == AnswerView.REASON_ANALYSIS:
-        elements.append(_markdown(_reason_analysis_focus_text(answer)))
-    elif view == AnswerView.ARCHITECTURE_EXPLAIN:
-        elements.append(_markdown(_architecture_explain_focus_text(answer)))
-    elif view == AnswerView.PROJECT_INVESTIGATION:
-        elements.append(_markdown(_general_key_findings(answer)))
-    else:
-        elements.append(_markdown(_general_key_findings(answer)))
+    if not answer.answer_text:
+        if view == AnswerView.PROJECT_OVERVIEW:
+            elements.append(_markdown(_project_intro_focus_text(answer)))
+        elif view == AnswerView.PROJECT_MAP:
+            elements.append(_markdown(_project_map_focus_text(answer)))
+        elif view == AnswerView.KNOWLEDGE_GAP:
+            elements.append(_markdown(_knowledge_gap_focus_text(answer)))
+        elif view == AnswerView.OWNER_LOOKUP:
+            elements.append(_markdown(_owner_lookup_focus_text(answer)))
+        elif view == AnswerView.CHANGE_IMPACT:
+            elements.append(_markdown(_change_impact_focus_text(answer)))
+        elif view == AnswerView.INCIDENT_COLLABORATION:
+            elements.append(_markdown(_incident_collaboration_focus_text(answer)))
+        elif view == AnswerView.CODE_EXPLANATION:
+            elements.append(_markdown(_code_explanation_focus_text(answer)))
+        elif view == AnswerView.REASON_ANALYSIS:
+            elements.append(_markdown(_reason_analysis_focus_text(answer)))
+        elif view == AnswerView.ARCHITECTURE_EXPLAIN:
+            elements.append(_markdown(_architecture_explain_focus_text(answer)))
+        else:
+            elements.append(_markdown(_general_key_findings(answer)))
 
     # Shared key findings when view-specific section did not already list claims.
-    if view in {
+    if not answer.answer_text and view in {
         AnswerView.GENERAL_REPLY,
         AnswerView.PROJECT_INVESTIGATION,
         AnswerView.CODE_EXPLANATION,
@@ -501,11 +526,28 @@ def _change_impact_focus_text(answer: ProjectAnswer) -> str:
     if change_claims:
         lines.append("- 相关变更：")
         lines.extend(f"  - {item}" for item in change_claims[:4])
+        expiry = _expired_plan_note(change_claims)
+        if expiry:
+            lines.append(f"- 时间风险：{expiry}")
     else:
         lines.append("- 相关变更：当前证据不足，见未知项。")
     lines.append("- 建议先确认受影响服务、接口与回归场景，再讨论修复或回滚。")
     lines.append("- 只读分析：不执行 Apply / PR / deploy / rollback / restart。")
     return "\n".join(lines)
+
+
+def _expired_plan_note(texts: list[str]) -> str | None:
+    """Flag planned dates that are already past in the current local date."""
+    today = datetime.now(ZoneInfo("Asia/Shanghai")).date()
+    for text in texts:
+        for raw in re.findall(r"20\d{2}[-/]\d{1,2}[-/]\d{1,2}", text):
+            try:
+                planned = datetime.strptime(raw.replace("/", "-"), "%Y-%m-%d").date()
+            except ValueError:
+                continue
+            if planned < today:
+                return f"计划日期 {planned.isoformat()} 已过期（当前日期 {today.isoformat()}），尚无实际发布证据。"
+    return None
 
 
 def _incident_collaboration_focus_text(answer: ProjectAnswer) -> str:
@@ -554,7 +596,7 @@ def _code_explanation_focus_text(answer: ProjectAnswer) -> str:
 
 def _reason_analysis_focus_text(answer: ProjectAnswer) -> str:
     lines = ["**原因分析**"]
-    lines.append(f"- 一句话：{answer.business_summary or '见关键结论'}")
+    lines.append(f"- 回答：{answer.business_summary or '见关键结论'}")
     facts = [c.text for c in answer.claims if c.type == ClaimType.FACT][:4]
     if facts:
         lines.append("- 已核实原因线索：")
@@ -707,32 +749,14 @@ def render_memory_decision_card(
             f"- 记忆类型：{memory_type_label(proposal.memory_type)}"
         )
         title = "项目记忆待确认"
+        actions = _memory_action_buttons(proposal.id)
+        return FeishuCard(
+            title=title,
+            elements=[_markdown(body), actions, _note(f"proposal_id: {proposal.id}")],
+        ).to_payload()
     return FeishuCard(
         title=title,
         elements=[_markdown(body), _note(f"proposal_id: {proposal.id}")],
-    ).to_payload()
-
-
-def render_failure_card(run: AgentRun) -> dict[str, object]:
-    from project_lens.integrations.feishu.hermes_errors import (
-        HERMES_MODEL_FAILED,
-        classify_hermes_failure,
-        format_failure_for_feishu,
-    )
-
-    info = classify_hermes_failure(run.error or "")
-    heading = (
-        "模型调用失败"
-        if info.code == HERMES_MODEL_FAILED
-        else f"处理失败 · {info.code}"
-    )
-    body = format_failure_for_feishu(error=run.error, run_id=run.id)
-    return FeishuCard(
-        title=heading,
-        elements=[
-            _markdown(body),
-            _run_detail_actions(run.id),
-        ],
     ).to_payload()
 
 
@@ -854,43 +878,6 @@ def render_run_detail_card(detail: dict[str, object]) -> dict[str, object]:
     ).to_payload()
 
 
-def render_collaboration_gate_card(
-    *,
-    user_text: str,
-    project: ProjectRef | None = None,
-) -> dict[str, object]:
-    """Clarify non-project messages without forcing a project Skill AgentRun."""
-
-    scope = ""
-    if project is not None:
-        scope = (
-            f"\n当前绑定项目：tenant={project.tenant_id}；"
-            f"project={project.project_id}"
-        )
-        if project.service:
-            scope += f"；service={project.service}"
-
-    elements: list[dict[str, object]] = [
-        _markdown(f"**你说的是**\n{_short_question(user_text)}"),
-        _markdown(
-            "**这不太像当前项目问题**\n"
-            "我主要帮团队回答项目相关问题，不会把闲聊强行套进项目分析。"
-            f"{scope}"
-        ),
-        _markdown(
-            "**你可以这样问**\n"
-            "- 介绍一下这个项目\n"
-            "- 项目地图\n"
-            "- 最近变更 / 最近故障\n"
-            "- 知识库缺什么\n"
-            "- 负责人是谁\n"
-            "- 或直接描述服务、接口、报错、文档"
-        ),
-        _collaboration_shortcut_buttons(),
-    ]
-    return FeishuCard(title="ProjectLens 协作入口", elements=elements).to_payload()
-
-
 def render_context_preview_card(
     *,
     question: str,
@@ -914,7 +901,7 @@ def render_context_preview_card(
         if str(mark_value) == "citation":
             mark_label = "引用"
         occurred = getattr(raw, "occurred_at", None)
-        stamp = occurred.isoformat() if occurred is not None else "(no-time)"
+        stamp = _display_local_time(occurred)
         label = str(getattr(raw, "label", "") or "")
         item_id = str(getattr(raw, "item_id", "") or "")
         answer_raw = str(getattr(raw, "answer_summary", "") or "").strip()
@@ -1106,24 +1093,55 @@ def render_context_edit_card(
     staged_join = {str(item) for item in staged_join_citation_ids}
 
     pending_lines: list[str] = []
+    summary_lines: list[str] = []
+    summary_times: list[object] = []
+    summary_questions = 0
+    recent_lines: list[str] = []
+    citation_lines: list[str] = []
     for index, raw in enumerate(items, start=1):
         mark = getattr(raw, "mark", None)
         mark_value = getattr(mark, "value", mark)
         mark_label = "引用" if str(mark_value) == "citation" else "默认"
         occurred = getattr(raw, "occurred_at", None)
-        stamp = occurred.isoformat() if occurred is not None else "(no-time)"
+        stamp = _display_local_time(occurred)
         label = str(getattr(raw, "label", "") or "")
         item_id = str(getattr(raw, "item_id", "") or "")
         flag = "将去掉" if item_id in staged_exclude else "保留"
-        pending_lines.append(f"{index}. [{flag}] [{mark_label}] {stamp} · {label}")
+        question_text = str(getattr(raw, "user_question", "") or "").strip()
+        answer_text = str(getattr(raw, "answer_summary", "") or "").strip()
+        detail = f"{index}. [{flag}] [{mark_label}] {stamp} · {label}"
+        if question_text:
+            detail += f"\n   用户：{_short_question(question_text, limit=180)}"
+        if answer_text:
+            detail += f"\n   助手：{_pending_answer_preview(answer_text, limit=220)}"
+        pending_lines.append(detail)
+        source_kind = str(getattr(raw, "source_kind", "") or "")
+        if source_kind == "summary":
+            summary_lines.append(detail)
+            summary_times.append(occurred)
+            summary_questions = max(summary_questions, question_text.count("\n") + 1 if question_text else 0)
+        elif source_kind in {"recent_turn", "historical_turn"}:
+            recent_lines.append(detail)
+        elif source_kind in {"citation", "group_message"}:
+            citation_lines.append(detail)
 
     pending_body = (
         "\n".join(pending_lines) if pending_lines else "（当前待发为空）"
     )
+    if summary_lines:
+        valid_times = [item for item in summary_times if item is not None]
+        coverage = f"覆盖 {summary_questions} 轮"
+        if valid_times:
+            coverage += f"，起始时间 {min(valid_times).isoformat()}"
+        summary_body = coverage + "\n" + "\n".join(summary_lines)
+    else:
+        summary_body = "（暂无会话摘要）"
+    recent_body = "\n".join(recent_lines) if recent_lines else "（暂无逐轮对话；可用「选择更多历史」浏览）"
+    citation_body = "\n".join(citation_lines) if citation_lines else "（暂无已选引用）"
     join_lines: list[str] = []
     for raw in joinable_citations:
         stamp_obj = getattr(raw, "occurred_at", None)
-        stamp = stamp_obj.isoformat() if stamp_obj is not None else "(no-time)"
+        stamp = _display_local_time(stamp_obj)
         title = str(
             getattr(raw, "short_title", None)
             or getattr(raw, "label", None)
@@ -1142,7 +1160,7 @@ def render_context_edit_card(
     restore_lines: list[str] = []
     for raw in restorable_defaults:
         stamp_obj = getattr(raw, "occurred_at", None)
-        stamp = stamp_obj.isoformat() if stamp_obj is not None else "(no-time)"
+        stamp = _display_local_time(stamp_obj)
         label = str(getattr(raw, "label", "") or "")
         item_id = str(getattr(raw, "item_id", "") or "")
         flag = "将恢复" if item_id in staged_restore else "已去掉"
@@ -1161,6 +1179,9 @@ def render_context_edit_card(
             "红色=将去掉，蓝色=将加入/恢复；再点一次可取消勾选。"
         ),
         _markdown(f"**当前待发**\n{pending_body}"),
+        _markdown(f"**会话摘要**\n{summary_body}"),
+        _markdown(f"**最近对话**\n{recent_body}"),
+        _markdown(f"**已选引用资料**\n{citation_body}"),
         _markdown(f"**已去掉的默认项（可恢复）**\n{restore_body}"),
         _markdown(f"**可加入的引用**\n{join_body}"),
         _markdown(
@@ -1331,12 +1352,19 @@ def render_context_more_history_card(
     lines: list[str] = []
     for index, raw in enumerate(candidates, start=start):
         stamp_obj = getattr(raw, "occurred_at", None)
-        stamp = stamp_obj.isoformat() if stamp_obj is not None else "(no-time)"
+        stamp = _display_local_time(stamp_obj)
         title = str(getattr(raw, "short_title", "") or "")
         kind = str(getattr(raw, "source_kind", "") or "")
         selected = bool(getattr(raw, "already_in_pending", False))
         flag = "已选" if selected else "可选"
-        lines.append(f"{index}. [{flag}] [{kind}] {stamp} · {title}")
+        detail = f"{index}. [{flag}] [{kind}] {stamp} · {title}"
+        question_text = str(getattr(raw, "user_question", "") or "").strip()
+        answer_text = str(getattr(raw, "answer_summary", "") or "").strip()
+        if question_text:
+            detail += f"\n   用户：{_short_question(question_text, limit=160)}"
+        if answer_text:
+            detail += f"\n   助手：{_pending_answer_preview(answer_text, limit=200)}"
+        lines.append(detail)
     body = "\n".join(lines) if lines else "（当前页无会话侧历史候选）"
     range_label = f"{start}-{end}" if candidates else "0"
 
@@ -1346,7 +1374,7 @@ def render_context_more_history_card(
     group_lines: list[str] = []
     for index, raw in enumerate(group_list, start=group_start):
         stamp_obj = getattr(raw, "occurred_at", None)
-        stamp = stamp_obj.isoformat() if stamp_obj is not None else "(no-time)"
+        stamp = _display_local_time(stamp_obj)
         title = str(getattr(raw, "short_title", "") or "")
         selected = bool(getattr(raw, "already_in_pending", False))
         flag = "已选" if selected else "可选"
@@ -1642,7 +1670,7 @@ def render_about_bot_card(*, user_text: str) -> dict[str, object]:
 
     if is_model_meta_question(user_text):
         lead = (
-            f"**一句话结论**\n{model_line}\n\n"
+            f"**回答**\n{model_line}\n\n"
             "**说明**\n"
             "- 问「用什么模型」属于机器人元信息，不会去搜项目 Evidence\n"
             "- 项目事实仍必须引用文档 / commit / 图谱等证据\n"
@@ -1650,7 +1678,7 @@ def render_about_bot_card(*, user_text: str) -> dict[str, object]:
         )
     else:
         lead = (
-            "**一句话结论**\n"
+            "**回答**\n"
             "我是 ProjectLens：帮团队用证据回答项目问题（概览、地图、变更、故障、缺口）。\n\n"
             f"**表达层模型**\n{model_line}\n\n"
             "**边界**\n"
@@ -1922,9 +1950,9 @@ def _knowledge_gap_focus_text(answer: ProjectAnswer) -> str:
         if item.startswith("[") or item.startswith("缺口：")
     ]
     if gap_lines:
-        lines.extend(f"- {item}" for item in gap_lines[:8])
+        lines.extend(f"- {_clean_structured_text(item)}" for item in gap_lines[:8])
     elif answer.unknowns:
-        lines.extend(f"- 缺口：{item}" for item in answer.unknowns[:6])
+        lines.extend(f"- 缺口：{_clean_structured_text(item)}" for item in answer.unknowns[:6])
     else:
         lines.append("- 当前 ACL 范围内未发现明确缺口。")
     action_lines: list[str] = []
@@ -2106,21 +2134,15 @@ def _format_patch_plan_from_args(raw: object) -> str:
 
 
 def _memory_proposal_text(proposal: MemoryProposal) -> str:
+    # Compact footer for the answer card: claim text is already in the body above.
     lines = [
         "**建议沉淀为项目记忆**",
-        proposal.claim_text,
         f"- 记忆类型：{memory_type_label(proposal.memory_type)}",
     ]
     if proposal.reason.strip():
         lines.append(f"- 为什么建议沉淀：{proposal.reason.strip()}")
-    if proposal.evidence_ids:
-        lines.append("- 引用了哪些证据：")
-        lines.extend(f"  - {item_id}" for item_id in proposal.evidence_ids[:6])
-    else:
-        lines.append("- 引用了哪些证据：无（提案无效，不应出现）")
     if proposal.replaces_memory_id is not None:
         lines.append(f"- 将替换旧记忆：{proposal.replaces_memory_id}")
-    lines.append(f"- proposal_id: {proposal.id}")
     lines.append("- 确认 / 暂不沉淀：人工确认前不会写入正式 ProjectMemory。")
     return "\n".join(lines)
 

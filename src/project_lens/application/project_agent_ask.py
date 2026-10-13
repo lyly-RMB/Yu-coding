@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any
 
 from project_lens.application.answer_envelope import (
@@ -13,6 +14,9 @@ from project_lens.application.answer_envelope import (
 from project_lens.application.hermes_runtime import HermesRuntimeService
 from project_lens.domain.identity import ActorContext
 from project_lens.domain.models import ProjectRef, RunStatus
+from project_lens.application.knowledge_gap_service import KnowledgeGapService
+from project_lens.domain.knowledge_gap import KnowledgeGapCandidate, KnowledgeGapCaseType, GapSeverity
+from project_lens.application.knowledge_gap_digest import KnowledgeGapDigestService, render_owner_knowledge_gap_digest, render_knowledge_gap_digest
 from project_lens.project_space.policies import (
     ProjectRuntimeContextResolver,
 )
@@ -75,12 +79,22 @@ class ProjectAgentAskService:
         hermes_runtime: HermesRuntimeService,
         project_registry: ProjectRegistry,
         runtime_context_resolver: ProjectRuntimeContextResolver | None = None,
+        knowledge_gap_service: KnowledgeGapService | None = None,
+        knowledge_gap_digest_service: KnowledgeGapDigestService | None = None,
+        feishu_messenger: Any | None = None,
     ) -> None:
         self._hermes_runtime = hermes_runtime
         self._registry = project_registry
         self._resolver = runtime_context_resolver or ProjectRuntimeContextResolver(
             project_registry=project_registry,
         )
+        self._knowledge_gap_service = knowledge_gap_service
+        self._knowledge_gap_digest = knowledge_gap_digest_service
+        self._feishu_messenger = feishu_messenger
+
+    def configure_gap_delivery(self, *, digest_service: KnowledgeGapDigestService, messenger: Any) -> None:
+        self._knowledge_gap_digest = digest_service
+        self._feishu_messenger = messenger
 
     @property
     def run_service(self):  # noqa: ANN201 - preserves role-view adapter compatibility
@@ -245,7 +259,7 @@ class ProjectAgentAskService:
                 },
             )
 
-        return project_answer_to_envelope(
+        envelope = project_answer_to_envelope(
             run=executed,
             answer=executed.answer,
             events=events,
@@ -253,6 +267,43 @@ class ProjectAgentAskService:
             audience=request.audience,
             format=request.format,
         )
+        await self._persist_answer_gaps(executed.answer, project=project, actor=actor, scope=resolved.effective_scope, chat_id=chat_id)
+        return envelope
+
+    async def _persist_answer_gaps(self, answer, *, project: ProjectRef, actor: ActorContext, scope, chat_id: str | None) -> None:
+        if self._knowledge_gap_service is None:
+            return
+        evidence_ids = tuple(item.evidence_ids for item in answer.claims)
+        authorized = frozenset(item for group in evidence_ids for item in group)
+        created = []
+        gap_inputs = [
+            (text, KnowledgeGapCaseType.MISSING_SOURCE)
+            for text in getattr(answer, "unknowns", ())
+        ] + [
+            (text, KnowledgeGapCaseType.CONFLICTING_SOURCES)
+            for text in getattr(answer, "conflicts", ())
+        ]
+        for text, gap_type in gap_inputs:
+            if not text or not authorized:
+                continue
+            candidate = KnowledgeGapCandidate(project=project, type=gap_type, title=text[:300], question=text[:2000], description=text[:4000], severity=GapSeverity.MEDIUM, evidence_ids=tuple(authorized))
+            try:
+                created.append(self._knowledge_gap_service.observe(candidate, authorized_project=project, authorized_evidence_ids=authorized, visibility_scope=scope.scope_id if hasattr(scope, "scope_id") else "project:read", created_by=actor.actor_id))
+            except ValueError:
+                continue
+        if not created or self._feishu_messenger is None:
+            return
+        now = datetime.now(timezone.utc)
+        digest = self._knowledge_gap_digest.build(project, period_start=now.replace(hour=0, minute=0, second=0, microsecond=0), period_end=now, authorized_evidence_ids=authorized)
+        if chat_id:
+            key = f"{project.project_id}:group:knowledge_gap_digest:{digest.digest_date.isoformat()}"
+            if self._knowledge_gap_service.claim_notification(key, gap_id=created[0].id, project=project, recipient_id=chat_id, event_type="knowledge_gap_digest", period_key=digest.digest_date.isoformat(), at=now):
+                await self._feishu_messenger.post_card(chat_id, render_knowledge_gap_digest(digest))
+        for owner in sorted({item for case in created if case for item in case.suggested_owner_ids}):
+            owner_digest = self._knowledge_gap_digest.build_bundle(project, period_start=digest.period_start, period_end=digest.period_end, authorized_evidence_ids=authorized, authorized_owner_ids=frozenset({owner}), now=now).owner_digests[0]
+            key = f"{created[0].id}:{owner}:knowledge_gap_digest:{digest.digest_date.isoformat()}"
+            if self._knowledge_gap_service.claim_notification(key, gap_id=created[0].id, project=project, recipient_id=owner, event_type="knowledge_gap_digest", period_key=digest.digest_date.isoformat(), at=now):
+                await self._feishu_messenger.post_user_card(owner, render_owner_knowledge_gap_digest(digest, owner_digest))
 
 
 def detects_write_intent(question: str) -> bool:

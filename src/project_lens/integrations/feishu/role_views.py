@@ -51,12 +51,17 @@ def render_audience_view_elements(
     """Render a concise answer body; sources and runtime details are opt-in views."""
 
     elements = [
+        _markdown(f"### {view.title}"),
         _markdown(f"**你问的是**\n{_short_question(run.question)}"),
         _markdown(view.conclusion),
     ]
-    details = _audience_answer_detail_lines(view)
-    if details:
-        elements.append(_markdown("\n".join(details)))
+    for section in view.sections:
+        if section.items:
+            elements.append(
+                _markdown(
+                    f"**{section.title}**\n" + "\n".join(f"- {item}" for item in section.items)
+                )
+            )
     return elements
 
 
@@ -84,18 +89,46 @@ def _audience_answer_detail_lines(view: AudienceAnswer, *, limit: int = 5) -> li
 
 
 def source_summary_line(answer: ProjectAnswer) -> str:
-    count = len(answer.evidence)
-    if count <= 0:
-        return "当前没有可展示的项目资料引用；可点击「查看证据」确认。"
-    return f"已基于 {count} 条项目资料生成回答，可点击「查看证据」查看来源。"
+    """State which sources the answer bound — or that it bound none."""
+
+    by_id = {item.id: item for item in answer.evidence}
+    labels: list[str] = []
+    seen: set[str] = set()
+    for claim in answer.claims:
+        for evidence_id in claim.evidence_ids:
+            item = by_id.get(evidence_id)
+            if item is None:
+                continue
+            label = human_evidence_label(item)
+            if not label or label in seen:
+                continue
+            seen.add(label)
+            labels.append(f"- {label}")
+            if len(labels) >= 8:
+                break
+        if len(labels) >= 8:
+            break
+    for citation in answer.citations:
+        item = by_id.get(citation.id)
+        label = (
+            human_evidence_label(item)
+            if item is not None
+            else citation.source_uri
+        )
+        if label and label not in seen:
+            seen.add(label)
+            labels.append(f"- {label}")
+        if len(labels) >= 8:
+            break
+    if labels:
+        return "引用资料：\n" + "\n".join(labels)
+    return "引用资料：没有"
 
 
 def cited_fact_lines(answer: ProjectAnswer, *, limit: int = 5) -> list[str]:
     lines: list[str] = []
     for claim in answer.claims:
         if claim.type != ClaimType.FACT:
-            continue
-        if not claim.evidence_ids:
             continue
         lines.append(f"- {claim.text}")
         if len(lines) >= limit:
@@ -155,7 +188,7 @@ def technical_anchor_lines(answer: ProjectAnswer, *, limit: int = 8) -> list[str
         re.IGNORECASE,
     )
     for claim in answer.claims:
-        if claim.type != ClaimType.FACT or not claim.evidence_ids:
+        if claim.type != ClaimType.FACT:
             continue
         for match in path_re.findall(claim.text):
             if match in seen:
@@ -204,15 +237,19 @@ def _status_line(answer: ProjectAnswer) -> str:
     )
 
 
+def _answer_body(answer: ProjectAnswer) -> str:
+    return (answer.answer_text or answer.business_summary or answer.conclusion or "").strip()
+
+
 def _impact_lines(answer: ProjectAnswer) -> list[str]:
     """Audience-facing impact lines derived only from existing summaries/claims."""
 
     lines: list[str] = []
-    summary = (answer.business_summary or "").strip()
+    summary = _answer_body(answer)
     if summary:
         lines.append(f"- {summary[:220]}")
     for claim in answer.claims:
-        if claim.type != ClaimType.FACT or not claim.evidence_ids:
+        if claim.type != ClaimType.FACT:
             continue
         if any(
             marker in claim.text
@@ -223,14 +260,14 @@ def _impact_lines(answer: ProjectAnswer) -> list[str]:
             break
     if len(lines) < 2:
         for claim in answer.claims:
-            if claim.type == ClaimType.FACT and claim.evidence_ids:
+            if claim.type == ClaimType.FACT:
                 text = f"- {claim.text}"
                 if text not in lines:
                     lines.append(text)
             if len(lines) >= 3:
                 break
     if not lines:
-        lines.append("- 当前结论见上方一句话；更细影响需补充证据后再确认。")
+        lines.append("- 当前结论见上方一句话；需要更多细节可继续追问。")
     return lines[:4]
 
 
@@ -243,15 +280,18 @@ def _team_elements(
     del view  # question type already selected the card title
     elements = [
         _markdown(f"**你问的是**\n{_short_question(run.question)}"),
-        _markdown(f"**一句话结论**\n{answer.business_summary or '（暂无结论，见未知项）'}"),
+        _markdown(f"**回答**\n{_answer_body(answer) or '（暂无结论，见未知项）'}"),
         _markdown(f"**当前状态**\n{_status_line(answer)}"),
-        _markdown("**对团队意味着什么**\n" + "\n".join(_impact_lines(answer))),
     ]
-    confirmed = cited_fact_lines(answer)
-    if confirmed:
-        elements.append(_markdown("**已确认**\n" + "\n".join(confirmed)))
-    else:
-        elements.append(_markdown("**已确认**\n- 暂无带引用的已确认事实。"))
+    if not answer.answer_text:
+        elements.append(
+            _markdown("**对团队意味着什么**\n" + "\n".join(_impact_lines(answer)))
+        )
+        confirmed = cited_fact_lines(answer)
+        if confirmed:
+            elements.append(_markdown("**已确认**\n" + "\n".join(confirmed)))
+        else:
+            elements.append(_markdown("**已确认**\n- 暂无确认事实。"))
     if answer.unknowns:
         elements.append(
             _markdown(
@@ -269,7 +309,7 @@ def _team_elements(
 def _technical_elements(run: AgentRun, answer: ProjectAnswer) -> list[dict[str, object]]:
     elements = [
         _markdown(f"**你问的是**\n{_short_question(run.question)}"),
-        _markdown(f"**一句话结论**\n{answer.business_summary or '（暂无结论）'}"),
+        _markdown(f"**回答**\n{_answer_body(answer) or '（暂无结论）'}"),
         _markdown(f"**当前状态**\n{_status_line(answer)}"),
         _markdown(f"**当前视图**\n{audience_label(AnswerAudience.TECHNICAL)}"),
     ]
@@ -284,7 +324,7 @@ def _technical_elements(run: AgentRun, answer: ProjectAnswer) -> list[dict[str, 
     elements.append(
         _markdown(
             "**已确认事实**\n"
-            + ("\n".join(confirmed) if confirmed else "- 暂无带引用事实。")
+            + ("\n".join(confirmed) if confirmed else "- 暂无确认事实。")
         )
     )
     inferences = inference_lines(answer)
@@ -309,10 +349,10 @@ def _technical_elements(run: AgentRun, answer: ProjectAnswer) -> list[dict[str, 
 
 
 def _business_elements(run: AgentRun, answer: ProjectAnswer) -> list[dict[str, object]]:
-    plain = answer.business_summary or "（暂无业务结论）"
+    plain = _answer_body(answer) or "（暂无业务结论）"
     elements = [
         _markdown(f"**你问的是**\n{_short_question(run.question)}"),
-        _markdown(f"**一句话结论**\n{plain}"),
+        _markdown(f"**回答**\n{plain}"),
         _markdown(f"**当前视图**\n{audience_label(AnswerAudience.BUSINESS)}"),
         _markdown("**这对业务/用户意味着什么**\n" + "\n".join(_impact_lines(answer))),
         _markdown(
@@ -325,7 +365,7 @@ def _business_elements(run: AgentRun, answer: ProjectAnswer) -> list[dict[str, o
     elements.append(
         _markdown(
             "**已经确认**\n"
-            + ("\n".join(confirmed) if confirmed else "- 暂无带引用确认项。")
+            + ("\n".join(confirmed) if confirmed else "- 暂无确认项。")
         )
     )
     if answer.unknowns:
@@ -347,14 +387,13 @@ def _business_elements(run: AgentRun, answer: ProjectAnswer) -> list[dict[str, o
 def _qa_elements(run: AgentRun, answer: ProjectAnswer) -> list[dict[str, object]]:
     elements = [
         _markdown(f"**你问的是**\n{_short_question(run.question)}"),
-        _markdown(f"**一句话结论**\n{answer.business_summary or '（暂无结论）'}"),
+        _markdown(f"**回答**\n{_answer_body(answer) or '（暂无结论）'}"),
         _markdown(f"**当前视图**\n{audience_label(AnswerAudience.QA)}"),
     ]
     impact = [
         f"- {claim.text}"
         for claim in answer.claims
         if claim.type == ClaimType.FACT
-        and claim.evidence_ids
         and any(m in claim.text for m in ("影响", "入口", "场景", "服务", "风险"))
     ][:5]
     if not impact:
@@ -362,7 +401,7 @@ def _qa_elements(run: AgentRun, answer: ProjectAnswer) -> list[dict[str, object]
     elements.append(
         _markdown(
             "**影响场景 / 回归范围**\n"
-            + ("\n".join(impact) if impact else "- 暂无带引用的影响场景。")
+            + ("\n".join(impact) if impact else "- 暂无影响场景要点。")
         )
     )
     elements.append(
@@ -387,7 +426,7 @@ def _manager_elements(run: AgentRun, answer: ProjectAnswer) -> list[dict[str, ob
     elements = [
         _markdown(f"**你问的是**\n{_short_question(run.question)}"),
         _markdown(f"**当前状态**\n{_status_line(answer)}"),
-        _markdown(f"**一句话结论**\n{answer.business_summary or '（暂无结论）'}"),
+        _markdown(f"**回答**\n{_answer_body(answer) or '（暂无结论）'}"),
         _markdown(f"**当前视图**\n{audience_label(AnswerAudience.MANAGER)}"),
         _markdown("**影响摘要**\n" + "\n".join(_impact_lines(answer))),
     ]
@@ -395,7 +434,6 @@ def _manager_elements(run: AgentRun, answer: ProjectAnswer) -> list[dict[str, ob
         f"- {claim.text}"
         for claim in answer.claims
         if claim.type == ClaimType.FACT
-        and claim.evidence_ids
         and any(m in claim.text for m in ("负责人", "owner", "负责"))
     ][:3]
     if owner_lines:
@@ -415,14 +453,14 @@ def _manager_elements(run: AgentRun, answer: ProjectAnswer) -> list[dict[str, ob
 def _onboarding_elements(run: AgentRun, answer: ProjectAnswer) -> list[dict[str, object]]:
     elements = [
         _markdown(f"**你问的是**\n{_short_question(run.question)}"),
-        _markdown(f"**项目一句话**\n{answer.business_summary or '（暂无定位）'}"),
+        _markdown(f"**回答**\n{_answer_body(answer) or '（暂无定位）'}"),
         _markdown(f"**当前视图**\n{audience_label(AnswerAudience.ONBOARDING)}"),
     ]
     facts = cited_fact_lines(answer, limit=5)
     elements.append(
         _markdown(
             "**建议先理解**\n"
-            + ("\n".join(facts) if facts else "- 暂无带引用要点，先看参考来源。")
+            + ("\n".join(facts) if facts else "- 暂无要点，先看来源摘要或继续追问。")
         )
     )
     anchors = technical_anchor_lines(answer, limit=5)
@@ -441,7 +479,7 @@ def _evidence_elements(run: AgentRun, answer: ProjectAnswer) -> list[dict[str, o
     elements = [
         _markdown(f"**你问的是**\n{_short_question(run.question)}"),
         _markdown(f"**当前视图**\n{audience_label(AnswerAudience.EVIDENCE)}"),
-        _markdown(f"**一句话结论**\n{answer.business_summary or '（暂无结论）'}"),
+        _markdown(f"**回答**\n{_answer_body(answer) or '（暂无结论）'}"),
     ]
     if not answer.evidence:
         elements.append(_markdown("**本次参考来源**\n- 当前答案没有可展示的 Evidence。"))

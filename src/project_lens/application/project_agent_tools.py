@@ -491,21 +491,6 @@ class ProjectAgentToolService:
                 or self._obsidian_inbox is not None
             )
         ]
-        # Legacy discovery compatibility: callers may still see the old graph
-        # name, but Hermes does not register it and call_tool rejects it.
-        tools.append({
-            "name": "projectlens_query_graph",
-            "description": (
-                "Deprecated: GraphRAG is disabled; use projectlens_search_context "
-                "with structured source metadata."
-            ),
-            # Keep the catalog entry in the read lane for older integrations;
-            # ``deprecated`` and the call-time rejection make its status clear.
-            "category": "read",
-            "parameters": {"type": "object", "properties": {}, "required": []},
-            "allow_apply": False,
-            "deprecated": True,
-        })
         if self._memory_store is not None:
             tools.insert(0, {
                 "name": "projectlens_search_project_memory",
@@ -560,18 +545,6 @@ class ProjectAgentToolService:
 
     async def call_tool(self, request: ProjectAgentToolCallRequest) -> dict[str, Any]:
         external = request.tool_name.strip()
-        if external == "projectlens_query_graph":
-            return _error_envelope(
-                error_code="TOOL_NOT_ALLOWED",
-                message=(
-                    "GraphRAG/query_graph is not part of the ProjectLens Phase 2 tool surface; "
-                    "use projectlens_search_context with structured source metadata."
-                ),
-                recovery="Use projectlens_search_context or projectlens_list_knowledge_gaps.",
-                request=request,
-                tool_name=external,
-                internal_tool_name="query_graph",
-            )
         internal = _EXTERNAL_TO_INTERNAL.get(external)
         is_memory_search = external in _MEMORY_EXTERNAL_TO_INTERNAL
         is_history_tool = external in _HISTORY_EXTERNAL_TO_INTERNAL
@@ -1679,9 +1652,6 @@ def _summary_for(
         return f"read_project_file returned an allowlisted snippet for {path}."
     if internal_tool_name in {"sync_sources", "export_obsidian", "lint_wiki"}:
         return f"{internal_tool_name} completed as an audited knowledge operation."
-    if internal_tool_name == "query_graph":
-        paths = payload.get("paths") if isinstance(payload.get("paths"), list) else []
-        return f"query_graph returned {len(paths)} relationship path(s)."
     if internal_tool_name == "authorized_evidence":
         rows = payload.get("evidence") if isinstance(payload.get("evidence"), list) else []
         return f"authorized_evidence returned {len(rows)} item(s)."

@@ -8,8 +8,13 @@
 
 | 文档 | 用途 |
 |------|------|
+| [`competition-remediation-plan.md`](competition-remediation-plan.md) | **参赛整改与交付计划**：问题、解决方法、验收标准、评测和材料清单 |
+| [`competition-test-plan.md`](competition-test-plan.md) | **参赛专项测试方案**：功能、AI 评测、安全、性能、飞书演示、试点和放行门禁 |
+| [`projectlens-answer-pipeline-implementation-plan.md`](projectlens-answer-pipeline-implementation-plan.md) | **问答链路职责分离实施方案**：Hermes 回答正文、AnswerDraft 证据结构、死代码清理、验证与飞书展示 |
 | [`projectlens-product-document.md`](projectlens-product-document.md) | 产品定义、目标/非目标、概念、MVP、路线图 |
 | [`feishu-test-quickstart.md`](feishu-test-quickstart.md) | **新人飞书测试**：要配什么、怎么配、怎么冒烟（推荐 `scripts/start-projectlens-feishu-ws.ps1`） |
+| [`projectlens-feishu-real-test-plan.md`](projectlens-feishu-real-test-plan.md) | **真实团队测试计划**：角色、脚本、阶段、门禁、缺陷和报告模板 |
+| [`../evaluation/feishu_team_test/README.md`](../evaluation/feishu_team_test/README.md) | **飞书群聊测试资产**：角色配置、三个剧本、执行日志和缺陷模板 |
 | [`../config/hermes/README.md`](../config/hermes/README.md) | Hermes `projectlens-safe` profile（CLI/MCP 调试；群聊以 WS ingress 为准） |
 | [`feishu-setup.md`](feishu-setup.md) | 飞书应用、长连接 / HTTP 回调、权限与联调检查 |
 | [`pilot-launch-config.md`](pilot-launch-config.md) | `.env` 配置剖面（Stub / Safe Live / 测试群） |
@@ -55,5 +60,6 @@
 3. [`feishu-test-quickstart.md`](feishu-test-quickstart.md) — 飞书群联调（新人优先）
 4. [`pilot-launch-config.md`](pilot-launch-config.md) + [`feishu-setup.md`](feishu-setup.md) — 配置细表
 5. [`projectspace-onboarding-guide.md`](projectspace-onboarding-guide.md) — 接入真实项目
-6. [`projectlens-obsidian-hermes-knowledge-base.md`](projectlens-obsidian-hermes-knowledge-base.md) — Obsidian 与 Hermes 知识库方案
-7. [`projectlens-obsidian-hermes-development-plan.md`](projectlens-obsidian-hermes-development-plan.md) — 分阶段开发实施细节
+6. [`competition-test-plan.md`](competition-test-plan.md) — 参赛专项测试方案
+7. [`projectlens-obsidian-hermes-knowledge-base.md`](projectlens-obsidian-hermes-knowledge-base.md) — Obsidian 与 Hermes 知识库方案
+8. [`projectlens-obsidian-hermes-development-plan.md`](projectlens-obsidian-hermes-development-plan.md) — 分阶段开发实施细节

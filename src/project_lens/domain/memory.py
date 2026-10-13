@@ -48,6 +48,7 @@ class MemoryType(StrEnum):
     POSTMORTEM = "postmortem"
     BUSINESS_RULE = "business_rule"
     TEAM_CONVENTION = "team_convention"
+    REQUIREMENT_CHANGE = "requirement_change"
 
 
 _MEMORY_TYPE_LABELS = {
@@ -59,6 +60,7 @@ _MEMORY_TYPE_LABELS = {
     MemoryType.POSTMORTEM: "复盘",
     MemoryType.BUSINESS_RULE: "业务规则",
     MemoryType.TEAM_CONVENTION: "团队约定",
+    MemoryType.REQUIREMENT_CHANGE: "需求变更",
 }
 
 

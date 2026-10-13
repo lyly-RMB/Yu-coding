@@ -1,0 +1,25 @@
+{
+  "scenario_id": "feishu-requirement-change-001",
+  "title": "需求变更讨论",
+  "project_id": "projectlens",
+  "reset_session_before_start": true,
+  "messages": [
+    {"sequence": 1, "role": "product", "text": "支付失败重试需要从两次改成三次，今天能确认吗？", "feishu_mention_required": true},
+    {"sequence": 2, "role": "developer", "text": "我查了一下，订单服务目前写死为两次，改动不大，但需要确认重试间隔。", "feishu_mention_required": false},
+    {"sequence": 3, "role": "qa", "text": "现有验收标准没有覆盖第三次重试，也没有说明最终失败时的用户提示。", "feishu_mention_required": false},
+    {"sequence": 4, "role": "product", "text": "那重试间隔暂定 30 秒，最终失败提示“支付失败，请稍后重试”。", "feishu_mention_required": false},
+    {"sequence": 5, "role": "manager", "text": "这个变更会影响当前发布计划吗？", "feishu_mention_required": true}
+  ],
+  "interventions": [
+    {"after_sequence": 3, "role": "manager", "text": "请总结刚才的讨论，列出每个角色已经确认和仍待确认的内容。", "feishu_mention_required": true},
+    {"after_sequence": 5, "role": "manager", "text": "请判断需求文档、会议讨论和当前实现是否一致，并列出负责人和下一步。", "feishu_mention_required": true}
+  ],
+  "acceptance_checks": [
+    "识别第三次重试、30 秒间隔和最终失败提示",
+    "指出正式需求或验收标准可能尚未同步",
+    "发现第三次重试缺少测试证据",
+    "提取产品、研发、测试和项目经理行动项",
+    "区分事实、推断、冲突和未知",
+    "不把临时群聊确认直接说成正式需求"
+  ]
+}

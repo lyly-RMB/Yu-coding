@@ -61,26 +61,27 @@ class HarnessProbeReport:
 def probe_evidence_safety(answer: ProjectAnswer) -> ProbeResult:
     evidence_ids = {item.id for item in answer.evidence}
     missing: list[str] = []
-    unsupported_facts = 0
+    uncited_facts = 0
     for claim in answer.claims:
         if claim.type == ClaimType.FACT and not claim.evidence_ids:
-            unsupported_facts += 1
+            uncited_facts += 1
         for evidence_id in claim.evidence_ids:
             if evidence_id not in evidence_ids:
                 missing.append(str(evidence_id))
-    passed = unsupported_facts == 0 and not missing
+    # Uncited facts are allowed; broken citation ids are not.
+    passed = not missing
     return ProbeResult(
         name="evidence_safety",
         passed=passed,
         detail=(
-            "all claims cite answer evidence"
+            "cited evidence ids resolve"
             if passed
-            else f"unsupported_facts={unsupported_facts} missing={missing[:5]}"
+            else f"missing={missing[:5]} uncited_facts={uncited_facts}"
         ),
         evidence={
             "claim_count": len(answer.claims),
             "missing_evidence_ids": missing[:10],
-            "unsupported_facts": unsupported_facts,
+            "uncited_facts": uncited_facts,
         },
     )
 
@@ -388,7 +389,6 @@ def probe_read_gateway_trail(
         "search_context",
         "authorized_evidence",
         "list_knowledge_gaps",
-        "query_graph",
         "query_logs",
     }
     has_read = any(name in known_read for name in tool_names)

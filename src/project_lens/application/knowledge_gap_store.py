@@ -14,6 +14,8 @@ from project_lens.domain.knowledge_gap import (
     KnowledgeGapObservation,
     KnowledgeGapStateEvent,
     KnowledgeGapAction,
+    KnowledgeGapRecheck,
+    KnowledgeGapRecheckJob,
 )
 from project_lens.domain.models import ProjectRef
 
@@ -30,6 +32,11 @@ class KnowledgeGapStore(Protocol):
     def actions_for_gap(self, gap_id: UUID) -> tuple[KnowledgeGapAction, ...]: ...
     def save_action(self, action: KnowledgeGapAction) -> None: ...
     def get_action(self, action_id: UUID) -> KnowledgeGapAction | None: ...
+    def save_recheck(self, recheck: KnowledgeGapRecheck) -> None: ...
+    def rechecks_for_gap(self, gap_id: UUID) -> tuple[KnowledgeGapRecheck, ...]: ...
+    def enqueue_recheck_job(self, job: KnowledgeGapRecheckJob) -> KnowledgeGapRecheckJob | None: ...
+    def list_recheck_jobs(self, project: ProjectRef, *, retry_failed: bool = True) -> tuple[KnowledgeGapRecheckJob, ...]: ...
+    def update_recheck_job(self, job: KnowledgeGapRecheckJob) -> None: ...
     def record_digest_run(self, run) -> object: ...
     def get_digest_run(self, digest_key: str): ...
     def refresh_digest_run(self, run): ...
@@ -50,6 +57,8 @@ class InMemoryKnowledgeGapStore:
         self._observations: list[KnowledgeGapObservation] = []
         self._events: list[KnowledgeGapStateEvent] = []
         self._actions: dict[UUID, KnowledgeGapAction] = {}
+        self._rechecks: list[KnowledgeGapRecheck] = []
+        self._recheck_jobs: dict[str, KnowledgeGapRecheckJob] = {}
         self._digest_runs: dict[str, object] = {}
         self._digest_notifications: set[str] = set()
         self._lock = RLock()
@@ -95,6 +104,27 @@ class InMemoryKnowledgeGapStore:
     def get_action(self, action_id: UUID) -> KnowledgeGapAction | None:
         return self._actions.get(action_id)
 
+    def save_recheck(self, recheck: KnowledgeGapRecheck) -> None:
+        self._rechecks.append(recheck)
+
+    def rechecks_for_gap(self, gap_id: UUID) -> tuple[KnowledgeGapRecheck, ...]:
+        return tuple(item for item in self._rechecks if item.gap_id == gap_id)
+
+    def enqueue_recheck_job(self, job: KnowledgeGapRecheckJob) -> KnowledgeGapRecheckJob | None:
+        with self._lock:
+            if job.idempotency_key in self._recheck_jobs:
+                return None
+            self._recheck_jobs[job.idempotency_key] = job
+            return job
+
+    def list_recheck_jobs(self, project: ProjectRef, *, retry_failed: bool = True) -> tuple[KnowledgeGapRecheckJob, ...]:
+        statuses = {"pending", "failed"} if retry_failed else {"pending"}
+        return tuple(job for job in self._recheck_jobs.values() if _same_project(job.project, project) and job.status in statuses)
+
+    def update_recheck_job(self, job: KnowledgeGapRecheckJob) -> None:
+        with self._lock:
+            self._recheck_jobs[job.idempotency_key] = job
+
     def record_digest_run(self, run):
         return self._digest_runs.setdefault(run.digest_key, run)
 
@@ -131,7 +161,7 @@ class InMemoryKnowledgeGapStore:
 class SQLiteKnowledgeGapStore:
     def __init__(self, database: SQLiteGapDatabase) -> None:
         self._database = database
-        database.run_migrations("knowledge_gap", {1: _create_schema})
+        database.run_migrations("knowledge_gap", {1: _create_schema, 2: _create_recheck_schema, 3: _create_recheck_job_schema})
 
     def get(self, gap_id: UUID) -> KnowledgeGapCase | None:
         row = self._database.query_one("SELECT payload FROM knowledge_gap_cases WHERE id = ?", (str(gap_id),))
@@ -210,6 +240,41 @@ class SQLiteKnowledgeGapStore:
     def get_action(self, action_id: UUID) -> KnowledgeGapAction | None:
         row = self._database.query_one("SELECT payload FROM knowledge_gap_actions WHERE id = ?", (str(action_id),))
         return KnowledgeGapAction.model_validate_json(row["payload"]) if row else None
+
+    def save_recheck(self, recheck: KnowledgeGapRecheck) -> None:
+        self._database.execute(
+            "INSERT INTO knowledge_gap_rechecks (id, gap_id, created_at, payload) VALUES (?, ?, ?, ?)",
+            (str(recheck.id), str(recheck.gap_id), recheck.created_at.isoformat(), recheck.model_dump_json()),
+        )
+
+    def rechecks_for_gap(self, gap_id: UUID) -> tuple[KnowledgeGapRecheck, ...]:
+        rows = self._database.query_all("SELECT payload FROM knowledge_gap_rechecks WHERE gap_id = ? ORDER BY created_at", (str(gap_id),))
+        return tuple(KnowledgeGapRecheck.model_validate_json(row["payload"]) for row in rows)
+
+    def enqueue_recheck_job(self, job: KnowledgeGapRecheckJob) -> KnowledgeGapRecheckJob | None:
+        cursor = self._database.execute(
+            "INSERT OR IGNORE INTO knowledge_gap_recheck_jobs "
+            "(idempotency_key, tenant_id, project_id, status, created_at, updated_at, payload) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (job.idempotency_key, job.project.tenant_id, job.project.project_id, job.status,
+             job.created_at.isoformat(), job.updated_at.isoformat(), job.model_dump_json()),
+        )
+        return job if cursor.rowcount == 1 else None
+
+    def list_recheck_jobs(self, project: ProjectRef, *, retry_failed: bool = True) -> tuple[KnowledgeGapRecheckJob, ...]:
+        statuses = ("pending", "failed") if retry_failed else ("pending",)
+        rows = self._database.query_all(
+            "SELECT payload FROM knowledge_gap_recheck_jobs WHERE tenant_id = ? AND project_id = ? AND status IN (?, ?) ORDER BY created_at",
+            (project.tenant_id, project.project_id, statuses[0], statuses[-1]),
+        )
+        return tuple(job for row in rows if _same_project(
+            (job := KnowledgeGapRecheckJob.model_validate_json(row["payload"])).project, project
+        ))
+
+    def update_recheck_job(self, job: KnowledgeGapRecheckJob) -> None:
+        self._database.execute(
+            "UPDATE knowledge_gap_recheck_jobs SET status = ?, updated_at = ?, payload = ? WHERE idempotency_key = ?",
+            (job.status, job.updated_at.isoformat(), job.model_dump_json(), job.idempotency_key),
+        )
 
     def record_digest_run(self, run):
         self._database.execute(
@@ -334,6 +399,33 @@ def _create_schema(connection: sqlite3.Connection) -> None:
         CREATE INDEX idx_knowledge_gap_notifications_project
             ON knowledge_gap_notifications (tenant_id, project_id, period_key);
     """)
+
+
+def _create_recheck_schema(connection: sqlite3.Connection) -> None:
+    connection.execute("""
+        CREATE TABLE knowledge_gap_rechecks (
+            id TEXT PRIMARY KEY,
+            gap_id TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            payload TEXT NOT NULL
+        )
+    """)
+    connection.execute("CREATE INDEX idx_knowledge_gap_rechecks_gap ON knowledge_gap_rechecks (gap_id, created_at)")
+
+
+def _create_recheck_job_schema(connection: sqlite3.Connection) -> None:
+    connection.execute("""
+        CREATE TABLE knowledge_gap_recheck_jobs (
+            idempotency_key TEXT PRIMARY KEY,
+            tenant_id TEXT NOT NULL,
+            project_id TEXT NOT NULL,
+            status TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            payload TEXT NOT NULL
+        )
+    """)
+    connection.execute("CREATE INDEX idx_knowledge_gap_recheck_jobs_project ON knowledge_gap_recheck_jobs (tenant_id, project_id, status, created_at)")
 
 
 def _same_project(left: ProjectRef, right: ProjectRef) -> bool:

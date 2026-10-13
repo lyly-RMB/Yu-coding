@@ -111,7 +111,7 @@ def role_template_policy(
                 file_allowlist,
                 ("knowledge/", "docs/", "tests/", "src/"),
             ),
-            allowed_tools=("search_context", "query_graph", "list_knowledge_gaps"),
+            allowed_tools=("search_context", "list_knowledge_gaps"),
             answer_depth=AnswerDepth.BRIEF,
             answer_style="executive",
             visibility_level=VisibilityLevel.TEAM_SHARED,

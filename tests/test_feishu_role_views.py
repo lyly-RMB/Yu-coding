@@ -152,11 +152,11 @@ def test_default_team_card_not_flooded_by_sources_or_audit() -> None:
     first = _first_screen(card)
     joined = _joined(card)
 
-    assert "**一句话结论**" in first
+    assert "**回答**" in first
     assert "**当前状态**" in first
     assert "**对团队意味着什么**" in first or "**已确认**" in first
     assert "**来源摘要**" in joined
-    assert "已基于" in joined and "条项目资料" in joined
+    assert "引用资料：" in joined
 
     # First screen must not be drowned by evidence list / SkillGuide / tools / provider.
     assert "**本次参考来源**" not in first
@@ -172,7 +172,7 @@ def test_default_team_card_not_flooded_by_sources_or_audit() -> None:
 
     # Debug / audit after the answer body.
     assert "**调试信息**" in joined
-    assert joined.index("**一句话结论**") < joined.index("**调试信息**")
+    assert joined.index("**回答**") < joined.index("**调试信息**")
     debug = joined[joined.index("**调试信息**") :]
     assert "skill_guide: free_question" in debug or "free_question" in debug
 
@@ -249,5 +249,5 @@ def test_skillguide_provider_tool_ids_not_on_team_first_screen() -> None:
     assert "read_project_file" not in first
     # Without debug audit, team cards must not leak trace_id at all.
     assert "trace_id" not in joined
-    assert "一句话结论" in joined
+    assert "**回答**" in joined
     assert "**调试信息**" not in joined

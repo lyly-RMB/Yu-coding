@@ -62,13 +62,7 @@ class FakeClient:
                     "category": "read",
                     "allow_apply": False,
                 }
-                for name in (
-                    "projectlens_search_context",
-                    "projectlens_read_project_file",
-                    "projectlens_query_graph",
-                    "projectlens_authorized_evidence",
-                    "projectlens_list_knowledge_gaps",
-                )
+                for name in FORMAL_TOOL_NAMES
             ],
         }
 
@@ -540,14 +534,14 @@ def test_build_tool_call_payload_uses_chat_binding() -> None:
         feishu_bindings={"oc_1": {"tenant_id": "acme", "project_id": "order"}},
     )
     payload = build_tool_call_payload(
-        tool_name="projectlens_query_graph",
+        tool_name="projectlens_list_knowledge_gaps",
         arguments={"limit": 3},
         config=config,
         chat_id="oc_1",
         user_id="u9",
     )
     assert payload == {
-        "tool_name": "projectlens_query_graph",
+        "tool_name": "projectlens_list_knowledge_gaps",
         "project": {"tenant_id": "acme", "project_id": "order"},
         "user_id": "u9",
         "chat_id": "oc_1",
@@ -842,7 +836,7 @@ def test_tool_loop_smoke_can_switch_project_space_by_request() -> None:
             chat_id="oc_crm",
             tool_calls=(
                 {
-                    "tool_name": "projectlens_query_graph",
+                    "tool_name": "projectlens_list_knowledge_gaps",
                     "arguments": {"limit": 3},
                 },
             ),
@@ -851,7 +845,7 @@ def test_tool_loop_smoke_can_switch_project_space_by_request() -> None:
         server.stop()
 
     assert result.ok is True
-    assert result.called_tools == ("projectlens_query_graph",)
+    assert result.called_tools == ("projectlens_list_knowledge_gaps",)
     assert server.requests[1]["body"]["project"] == {
         "tenant_id": "demo",
         "project_id": "crm",

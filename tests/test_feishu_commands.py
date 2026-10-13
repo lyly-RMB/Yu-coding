@@ -1,8 +1,10 @@
 from project_lens.integrations.feishu.commands import (
     FeishuProjectCommand,
     classify_feishu_command,
+    is_context_manager_command,
     rewrite_command_to_question,
     rewrite_feishu_message,
+    strip_context_manager_prefix,
 )
 from project_lens.workflow.skills import ProjectSkill, classify_project_question
 
@@ -45,3 +47,12 @@ def test_free_question_is_preserved() -> None:
     assert rewrite_feishu_message(question) == question
     assert rewrite_feishu_message("负责人是谁").startswith("这个项目的负责人是谁")
     assert "介绍一下这个项目" in rewrite_feishu_message("这个项目是做什么的")
+
+
+def test_context_manager_is_explicit_and_one_shot() -> None:
+    for text in ("/context", "/context 介绍一下项目", "上下文管理：项目地图"):
+        assert is_context_manager_command(text)
+    assert not is_context_manager_command("普通问题里的上下文管理")
+    assert classify_feishu_command("/context 介绍一下项目") == FeishuProjectCommand.CONTEXT_MANAGER
+    assert strip_context_manager_prefix("/context 介绍一下项目") == "介绍一下项目"
+    assert strip_context_manager_prefix("上下文管理：项目地图") == "项目地图"

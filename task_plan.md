@@ -42,6 +42,39 @@ Status: stage 7 evaluation infrastructure in progress; stages 0-6 complete; vect
 - [x] Add reproducible release report with git revision, dataset hash, run traces, security blockers, and gate decision.
 - [ ] Expand the locked golden set to at least 100 cases and run answer/temporal/conflict evaluation before release.
 
+## 2026-10-12 Answer pipeline responsibility refactor
+
+Objective: separate Hermes presentation from AnswerDraft evidence verification. Hermes may
+answer in any user-requested format, including 产品/研发/测试 sections. AnswerDraft only
+normalizes facts, citations, unknowns, and actions; ProjectAnswer retains both the complete
+answer text and the verified evidence projection; Feishu renders the complete answer first.
+
+| Phase | Status | Deliverable |
+| --- | --- | --- |
+| 1. Contract audit | complete | Freeze the boundaries and identify every answer projection. |
+| 2. Runtime capture | complete | Preserve Hermes raw/final answer text alongside the evidence draft. |
+| 3. Evidence draft cleanup | complete | Remove role-format concerns from AnswerDraft; support nested evidence payloads and keep facts/citations/unknowns/actions only. |
+| 4. Verification model | complete | Add complete answer text to ProjectAnswer without weakening evidence validation; reject ordinal citation guessing. |
+| 5. Presentation | complete | Render one answer_text by default; role views are explicit-only and long answers no longer get duplicate projections. |
+| 6. Regression | complete | Cover ordinary Q&A, three-role summary, malformed/uncited output, API, card, and Feishu text paths. |
+| 7. Real Feishu acceptance | in_progress | Backend restarted with the latest renderer/citation changes; user must manually retest and provide chat results. |
+
+### Target contracts
+
+```text
+Hermes raw/final response: presentation source of truth
+AnswerDraft: facts + inferences + citations + unknowns + next_actions
+ProjectAnswer: answer_text + verified claims/evidence + unknowns/actions
+Feishu card/text: answer_text first, verification details second
+```
+
+### Non-goals
+
+- Do not force every question into 产品/研发/测试 sections.
+- Do not treat answer formatting as evidence metadata.
+- Do not bypass citation verification because Hermes supplied prose.
+- Do not have the card renderer invent or rewrite the model's answer.
+
 ## 2026-09-18 Knowledge retrieval implementation
 
 | Stage | Status | Deliverable |

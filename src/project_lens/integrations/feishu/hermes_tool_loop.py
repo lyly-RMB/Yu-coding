@@ -352,6 +352,11 @@ def _build_answer_envelope(
 
     return {
         "ok": bool(result.ok),
+        "answer_text": str(
+            getattr(result.verified_answer, "answer_text", "")
+            or result.final_response
+            or answer_summary
+        ).strip(),
         "answer_summary": answer_summary,
         "facts": facts,
         "inferences": [],
@@ -415,10 +420,31 @@ async def _run_runner_async(
         if supports_context:
             kwargs["context"] = context
 
-    return await asyncio.to_thread(
-        runner.run,
-        **kwargs,
-    )
+    # A provider/tool-call deadlock must not leave Feishu stuck on
+    # "正在回答" forever. The worker thread may finish later, but the user
+    # receives a bounded failure response and can retry safely.
+    # Qwen tool calls can require a second model turn after the tool result.
+    # Keep a bounded response window without aborting a healthy loop early.
+    from project_lens.config import settings
+
+    timeout_seconds = max(30.0, float(settings.feishu_hermes_loop_timeout_seconds or 120.0))
+    try:
+        return await asyncio.wait_for(
+            asyncio.to_thread(runner.run, **kwargs),
+            timeout=timeout_seconds,
+        )
+    except asyncio.TimeoutError:
+        return HermesLoopRunResult(
+            final_response="",
+            ok=False,
+            error=(
+                f"Hermes 工具循环超过 {int(timeout_seconds)} 秒未完成。"
+                "模型基础连接正常，但当前工具调用链未返回；"
+                "请缩小问题范围或稍后重试。"
+            ),
+            error_code="HERMES_TIMEOUT",
+            error_stage="hermes.agent_loop",
+        )
 
 
 def _run_async(coro: Any) -> Any:

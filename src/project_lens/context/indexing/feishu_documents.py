@@ -74,6 +74,7 @@ class FeishuDocumentIndexer:
                         ),
                         metadata={
                             "doc_token": normalized.doc_token,
+                            "source_ref": f"feishu_doc:{normalized.doc_token}",
                             "revision": normalized.revision,
                             "title": normalized.title,
                             "owner_user_id": normalized.owner_user_id,

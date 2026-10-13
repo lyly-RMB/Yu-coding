@@ -1,4 +1,10 @@
-from project_lens.agent.hermes_answer_parser import parse_hermes_answer
+import json
+
+from project_lens.agent.hermes_answer_parser import (
+    extract_hermes_answer_text,
+    parse_hermes_answer,
+)
+from project_lens.agent.draft import AnswerDraft
 from project_lens.agent.hermes_answer import project_answer_from_hermes
 from project_lens.domain.models import ProjectRef
 from project_lens.integrations.feishu.hermes_loop_runner import HermesLoopToolCall
@@ -13,6 +19,26 @@ def test_parse_structured_hermes_answer_keeps_citations_for_later_verification()
     assert draft.facts[0].text == "owner is Ada"
     assert draft.facts[0].citations == ["ev-1"]
     assert draft.inferences == ["may affect checkout"]
+
+
+def test_answer_text_is_kept_separate_from_evidence_facts() -> None:
+    draft = parse_hermes_answer(
+        '{"answer_text":"产品：范围待确认\\n\\n研发：接口已改造",'
+        '"facts":[{"text":"接口已改造","citations":["E1"]}]}'
+    )
+
+    assert extract_hermes_answer_text(
+        '{"answer_text":"产品：范围待确认\\n\\n研发：接口已改造"}'
+    ).startswith("产品：")
+    assert len(draft.facts) == 1
+    assert draft.facts[0].text == "接口已改造"
+
+
+def test_answer_text_collapses_consecutive_duplicate_paragraphs() -> None:
+    text = "产品：范围已确认\n\n研发：接口待补测\n\n产品：范围已确认\n\n研发：接口待补测"
+    payload = '{"answer_text":' + json.dumps(text, ensure_ascii=False) + "}"
+
+    assert extract_hermes_answer_text(payload) == "产品：范围已确认\n\n研发：接口待补测"
 
 
 def test_parse_plain_text_does_not_promote_text_to_verified_fact() -> None:
@@ -91,3 +117,13 @@ def test_parse_hermes_answer_markdown_maps_used_tools() -> None:
         "projectlens_search_context",
     ]
     assert "不足以形成带引用结论" not in draft.business_summary
+
+
+def test_answer_draft_reads_nested_evidence_without_role_fields() -> None:
+    draft = AnswerDraft.from_json_text(
+        '{"answer_text":"产品：已确认\\n研发：待确认\\n测试：待确认",'
+        '"evidence":{"facts":[{"text":"接口有参数校验","citations":[]}]},'
+        '"product_summary":"展示字段，不是证据"}'
+    )
+    assert draft.facts[0].text == "接口有参数校验"
+    assert not hasattr(draft, "product_summary")

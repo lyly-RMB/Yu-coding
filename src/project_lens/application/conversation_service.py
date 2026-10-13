@@ -387,7 +387,7 @@ class ConversationService:
             answer_summary=(
                 None
                 if answer is None
-                else (answer.business_summary or answer.technical_summary or "")[:4_000]
+                else (answer.answer_text or answer.business_summary or answer.technical_summary or "")[:4_000]
                 or None
             ),
             evidence_ids=(
@@ -566,7 +566,7 @@ class ConversationService:
             decisions = [item for item in decisions if item.decision_id != decision.decision_id]
             decisions.append(decision)
         return state.model_copy(update={
-            "task_intent": state.task_intent or summary.session_intent or answer.business_summary[:500],
+            "task_intent": state.task_intent or summary.session_intent or (answer.answer_text or answer.business_summary)[:500],
             "current_status": answer.status or "in_progress",
             "confirmed_facts": tuple(facts[-80:]),
             "evidence_refs": tuple(refs[-80:]),

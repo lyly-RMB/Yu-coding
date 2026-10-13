@@ -47,12 +47,12 @@ def test_bot_meta_ingress() -> None:
         assert decision.creates_project_run is False
 
 
-def test_non_project_chitchat_ingress() -> None:
-    for text in ("你好", "在吗", "午饭吃什么"):
+def test_former_chitchat_enters_project_question_ingress() -> None:
+    for text in ("你好", "在吗", "午饭吃什么", "测试 open id"):
         decision = _decide(text)
-        assert decision.kind == FeishuIngressKind.NON_PROJECT_CHITCHAT
-        assert decision.entry_mode is None
-        assert decision.creates_project_run is False
+        assert decision.kind == FeishuIngressKind.PROJECT_QUESTION, text
+        assert decision.entry_mode == "natural_project_question", text
+        assert decision.creates_project_run is True, text
 
 
 def test_doc_sync_status_ingress() -> None:
@@ -92,7 +92,7 @@ def test_debug_project_command_ingress() -> None:
 def test_creates_project_run_only_for_project_paths() -> None:
     assert _decide("介绍一下这个项目").creates_project_run is True
     assert _decide("/project 项目地图").creates_project_run is True
-    assert _decide("你好").creates_project_run is False
+    assert _decide("你好").creates_project_run is True
     assert _decide("你是谁").creates_project_run is False
     assert _decide("同步状态").creates_project_run is False
 

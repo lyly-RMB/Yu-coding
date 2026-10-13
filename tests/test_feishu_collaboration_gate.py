@@ -1,46 +1,26 @@
-"""Non-project collaboration gate and ask_question card actions."""
+"""Feishu bot-meta / ask_question card actions (collaboration gate removed)."""
 
 from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from project_lens.domain.models import ProjectRef
 from project_lens.integrations.feishu.cards import (
     render_about_bot_card,
     render_answer_card,
-    render_collaboration_gate_card,
 )
-from project_lens.integrations.feishu.intent import (
-    is_bot_meta_question,
-    is_project_related_message,
-)
+from project_lens.integrations.feishu.intent import is_bot_meta_question
 from project_lens.main import create_app
 from tests.test_feishu_answer_views import _answer, _evidence, _run
 from tests.test_feishu_memory_approval import LOCAL_TOKEN, _configure, _message_payload
 
 
-def test_intent_gate_separates_chitchat_from_project() -> None:
-    assert is_project_related_message("你好") is False
-    assert is_project_related_message("在吗") is False
-    assert is_project_related_message("谢谢") is False
-    assert is_project_related_message("午饭吃什么") is False
-
-    assert is_project_related_message("介绍一下这个项目") is True
-    assert is_project_related_message("项目地图") is True
-    assert is_project_related_message("最近故障") is True
-    assert is_project_related_message("帮我看看这个接口") is True
-    assert is_project_related_message("create_order 这个函数怎么实现的？") is True
-    # Follow-up phrases are not project signals while skill routing is paused.
-    assert is_project_related_message("展开技术细节") is False
-
-
-def test_bot_meta_questions_are_not_project_analysis() -> None:
+def test_bot_meta_questions_are_detected() -> None:
     assert is_bot_meta_question("你用的是什么模型") is True
     assert is_bot_meta_question("@_user_1 你用的是什么模型") is True
     assert is_bot_meta_question("你是谁") is True
     assert is_bot_meta_question("你能做什么") is True
-    assert is_project_related_message("你用的是什么模型") is False
-    assert is_project_related_message("@_user_1 你用的是什么模型") is False
+    assert is_bot_meta_question("介绍一下这个项目") is False
+    assert is_bot_meta_question("你好") is False
 
 
 def test_about_bot_card_answers_model_without_skill() -> None:
@@ -51,27 +31,6 @@ def test_about_bot_card_answers_model_without_skill() -> None:
     assert "当前 Skill" not in joined
     assert "置信度" not in joined
     assert "不会去搜项目 Evidence" in joined or "表达增强" in joined
-
-
-def test_collaboration_gate_card_has_shortcuts() -> None:
-    card = render_collaboration_gate_card(
-        user_text="你好",
-        project=ProjectRef(
-            tenant_id="demo",
-            project_id="payment",
-            service="order-service",
-        ),
-    )
-    assert card["header"]["title"]["content"] == "ProjectLens 协作入口"
-    joined = "\n".join(item.get("content", "") for item in card["elements"] if "content" in item)
-    assert "不太像当前项目问题" in joined
-    assert "介绍一下这个项目" in joined
-    actions = [item for item in card["elements"] if item.get("tag") == "action"]
-    assert actions
-    labels = [btn["text"]["content"] for btn in actions[0]["actions"]]
-    assert "介绍项目" in labels
-    assert "项目地图" in labels
-    assert all(btn["value"]["action"] == "ask_question" for btn in actions[0]["actions"])
 
 
 def test_answer_card_includes_follow_up_action_buttons() -> None:
@@ -91,9 +50,12 @@ def test_answer_card_includes_follow_up_action_buttons() -> None:
     assert "给测试看的版本" in labels
 
 
-def test_feishu_chitchat_returns_collaboration_gate_without_run() -> None:
+def test_feishu_chitchat_enters_project_path_with_run_id() -> None:
+    """Former collaboration-gate chitchat now starts a project run (preview off)."""
+
     app = create_app()
     _configure(app)
+    app.state.feishu_event_service._context_preview_enabled = False
     client = TestClient(app)
     response = client.post(
         "/api/v1/feishu/events",
@@ -102,14 +64,14 @@ def test_feishu_chitchat_returns_collaboration_gate_without_run() -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "accepted"
-    assert "run_id" not in body
+    assert "run_id" in body
     texts = [
-        item
+        str(item.content.get("text") or "")
         for item in app.state.feishu_messenger.messages
         if item.message_type == "text"
     ]
-    assert texts
-    assert "协作入口" in texts[-1].content["text"] or "ProjectLens" in texts[-1].content["text"]
+    assert all("协作入口" not in text for text in texts)
+    assert all("不太像当前项目问题" not in text for text in texts)
 
 
 def test_feishu_model_question_returns_about_bot_without_run() -> None:
@@ -156,7 +118,31 @@ def test_ask_question_card_action_starts_project_run() -> None:
         json=_message_payload(event_id="ask-q-seed", text="介绍一下这个项目"),
     )
     assert first.status_code == 200
-    assert "run_id" in first.json()
+    assert first.json()["pending"] is True
+    first_confirm = client.post(
+        "/api/v1/feishu/events",
+        json={
+            "schema": "2.0",
+            "header": {
+                "event_id": "ask-q-seed-confirm",
+                "event_type": "card.action.trigger",
+                "tenant_key": "demo",
+            },
+            "event": {
+                "operator": {"open_id": "feishu-user-1"},
+                "action": {
+                    "tag": "button",
+                    "value": {
+                        "action": "context_direct_answer",
+                        "session_id": first.json()["session_id"],
+                    },
+                },
+                "context": {"open_chat_id": "chat-1", "chat_type": "group"},
+            },
+            "token": LOCAL_TOKEN,
+        },
+    )
+    assert "run_id" in first_confirm.json()
 
     payload = {
         "schema": "2.0",
@@ -182,4 +168,38 @@ def test_ask_question_card_action_starts_project_run() -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "accepted"
-    assert "run_id" in body
+    assert body["pending"] is True
+    assert "run_id" not in body
+    assert body["card"]["type"] == "raw"
+    assert "context_direct_answer" in str(body["card"]["data"])
+    session_id = next(
+        action["value"]["session_id"]
+        for element in body["card"]["data"].get("elements", [])
+        for action in element.get("actions", [])
+        if (action.get("value") or {}).get("action") == "context_direct_answer"
+    )
+    second_confirm = client.post(
+        "/api/v1/feishu/events",
+        json={
+            "schema": "2.0",
+            "header": {
+                "event_id": "ask-q-tech-confirm",
+                "event_type": "card.action.trigger",
+                "tenant_key": "demo",
+            },
+            "event": {
+                "operator": {"open_id": "feishu-user-1"},
+                "action": {
+                    "tag": "button",
+                    "value": {
+                        "action": "context_direct_answer",
+                        "session_id": session_id,
+                    },
+                },
+                "context": {"open_chat_id": "chat-1", "chat_type": "group"},
+            },
+            "token": LOCAL_TOKEN,
+        },
+    )
+    assert second_confirm.status_code == 200
+    assert "run_id" in second_confirm.json()
